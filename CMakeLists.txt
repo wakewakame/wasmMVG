@@ -54,13 +54,13 @@ target_include_directories(wasmMVG PRIVATE
 	"${OPENMVG_DIR}/install/include/openMVG/third_party/eigen"
 )
 target_link_directories(wasmMVG PRIVATE "${OPENMVG_DIR}/install/lib")
+# 以下は ${OPENMVG_DIR}/install/lib に生成された lib*.a ファイルを並べている
 target_link_libraries(wasmMVG PRIVATE
 	lib_clp
 	lib_CoinUtils
 	lib_Osi
 	lib_OsiClpSolver
 	"openMVG_ceres$<$<CONFIG:Debug>:-debug>"
-	openMVG_cxsparse
 	openMVG_exif
 	openMVG_easyexif
 	openMVG_fast
