@@ -44,64 +44,80 @@ ExternalProject_Add(
 		-DINCLUDE_INSTALL_DIR=${OPENMVG_DIR}/install/include/openMVG/third_party/eigen
 )
 
-# wasmMVG の作成
-add_executable(wasmMVG main.cpp)
-target_compile_features(wasmMVG PUBLIC cxx_std_11)  # C++ のバージョンを openMVG に合わせる
-add_dependencies(wasmMVG ${OPENMVG_TARGET_NAME})
-target_include_directories(wasmMVG PRIVATE
-	"${OPENMVG_DIR}/install/include"
-	"${OPENMVG_DIR}/install/include/openMVG"
-	"${OPENMVG_DIR}/install/include/openMVG/third_party/eigen"
-)
-target_link_directories(wasmMVG PRIVATE "${OPENMVG_DIR}/install/lib")
-# 以下は ${OPENMVG_DIR}/install/lib に生成された lib*.a ファイルを並べている
-target_link_libraries(wasmMVG PRIVATE
-	lib_clp
-	lib_CoinUtils
-	lib_Osi
-	lib_OsiClpSolver
-	"openMVG_ceres$<$<CONFIG:Debug>:-debug>"
-	openMVG_exif
-	openMVG_easyexif
-	openMVG_fast
-	openMVG_features
-	openMVG_geometry
-	openMVG_image
-	openMVG_jpeg
-	openMVG_kvld
-	openMVG_linearProgramming
-	openMVG_lInftyComputerVision
-	openMVG_matching
-	openMVG_matching_image_collection
-	openMVG_multiview
-	openMVG_numeric
-	openMVG_png
-	openMVG_robust_estimation
-	openMVG_sfm
-	openMVG_stlplus
-	openMVG_system
-	openMVG_tiff
-	openMVG_zlib
-	vlsift
-)
-
-# OpenMVG はコンパイルオプションによって構造体のメモリレイアウトが変わるが、
-# コンパイル時の型チェックでレイアウトは検査されないので不正なメモリアクセスにより segfault する。
-# 以下はそのエラーを回避するためのオプション。
-# 参照: https://github.com/openMVG/openMVG/blob/e1bbfe801986cd7171f36443a1573b0f69f3702d/src/CMakeLists.txt#L106
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_definitions(-DOPENMVG_STD_UNORDERED_MAP)
-endif()
-
-# emscripten 用のオプション
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
-	target_compile_options(wasmMVG PRIVATE
-		-fwasm-exceptions                 # 例外のキャッチを有効化する
+# 実行ファイルを作成するマクロ
+macro(make_app)
+	set(oneValueArgs SOURCE)
+	cmake_parse_arguments(ARG "" "${oneValueArgs}" "" ${ARGN})
+	get_filename_component(APP_NAME "${ARG_SOURCE}" NAME_WE)
+	add_executable(${APP_NAME} ${ARG_SOURCE})
+	target_compile_features(${APP_NAME} PUBLIC cxx_std_11)  # C++ のバージョンを openMVG に合わせる
+	add_dependencies(${APP_NAME} ${OPENMVG_TARGET_NAME})
+	target_include_directories(${APP_NAME} PRIVATE
+		"${OPENMVG_DIR}/install/include"
+		"${OPENMVG_DIR}/install/include/openMVG"
+		"${OPENMVG_DIR}/install/include/openMVG/third_party"
+		"${OPENMVG_DIR}/install/include/openMVG/third_party/eigen"
+		"${OPENMVG_DIR}/install/include/openMVG/third_party/lemon"
+		"${OPENMVG_DIR}/install/include/openMVG_dependencies"
+		"${OPENMVG_DIR}/install/include/openMVG_dependencies/cereal/include"
 	)
-	target_link_options(wasmMVG PRIVATE
-		-fwasm-exceptions                 # 例外のキャッチを有効化する
-		"SHELL:-s NODERAWFS=1"            # ファイルの読み書きを可能にする
-		"SHELL:-s ALLOW_MEMORY_GROWTH=1"  # メモリ不足時の自動確保を有効化する
+	target_link_directories(${APP_NAME} PRIVATE "${OPENMVG_DIR}/install/lib")
+	# 以下は ${OPENMVG_DIR}/install/lib に生成された lib*.a ファイルを並べている
+	target_link_libraries(${APP_NAME} PRIVATE
+		lib_clp
+		lib_CoinUtils
+		lib_Osi
+		lib_OsiClpSolver
+		"openMVG_ceres$<$<CONFIG:Debug>:-debug>"
+		openMVG_exif
+		openMVG_easyexif
+		openMVG_fast
+		openMVG_features
+		openMVG_geometry
+		openMVG_image
+		openMVG_jpeg
+		openMVG_kvld
+		openMVG_linearProgramming
+		openMVG_lInftyComputerVision
+		openMVG_matching
+		openMVG_matching_image_collection
+		openMVG_multiview
+		openMVG_numeric
+		openMVG_png
+		openMVG_robust_estimation
+		openMVG_sfm
+		openMVG_stlplus
+		openMVG_system
+		openMVG_tiff
+		openMVG_zlib
+		vlsift
 	)
-endif()
+
+	# OpenMVG はコンパイルオプションによって構造体のメモリレイアウトが変わるが、
+	# コンパイル時の型チェックでレイアウトは検査されないので不正なメモリアクセスにより segfault する。
+	# 以下はそのエラーを回避するためのオプション。
+	# 参照: https://github.com/openMVG/openMVG/blob/e1bbfe801986cd7171f36443a1573b0f69f3702d/src/CMakeLists.txt#L106
+	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		add_definitions(-DOPENMVG_STD_UNORDERED_MAP)
+	endif()
+
+	# emscripten 用のオプション
+	if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
+		target_compile_options(${APP_NAME} PRIVATE
+			-fwasm-exceptions                 # 例外のキャッチを有効化する
+		)
+		target_link_options(${APP_NAME} PRIVATE
+			-fwasm-exceptions                 # 例外のキャッチを有効化する
+			"SHELL:-s NODERAWFS=1"            # ファイルの読み書きを可能にする
+			"SHELL:-s ALLOW_MEMORY_GROWTH=1"  # メモリ不足時の自動確保を有効化する
+		)
+	endif()
+endmacro()
+
+# 実行ファイル作成
+make_app(SOURCE main.cpp)
+file(GLOB_RECURSE ALL_EXAMPLE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
+foreach(SOURCE IN LISTS ALL_EXAMPLE_FILES)
+	make_app(SOURCE "${SOURCE}")
+endforeach()
 

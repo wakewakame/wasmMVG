@@ -9,7 +9,12 @@ case $COMMAND in
 		git submodule update --init --recursive
 		./lib/emsdk/emsdk install 3.1.28
 		./lib/emsdk/emsdk activate 3.1.28
-		cp ./lib/openMVG/src/software/SfM/main_SfMInit_ImageListing.cpp ./main.cpp
+		mkdir -p examples
+		cp ./lib/openMVG/src/software/SfM/main_SfMInit_ImageListing.cpp ./examples/
+		cp ./lib/openMVG/src/software/SfM/main_ComputeFeatures.cpp      ./examples/
+		cp ./lib/openMVG/src/software/SfM/main_ComputeMatches.cpp       ./examples/
+		cp ./lib/openMVG/src/software/SfM/main_GeometricFilter.cpp      ./examples/
+		cp ./lib/openMVG/src/software/SfM/main_SfM.cpp                  ./examples/
 		;;
 	"build" )
 		TARGET=${1:-wasm}       # 'wasm' or 'native'
@@ -37,10 +42,100 @@ case $COMMAND in
 		DST="./build/${TARGET}/${BUILD_TYPE}"
 		case $TARGET in
 			"wasm" )
-				node --trace-uncaught "${DST}/wasmMVG.js" -i "./lib/ImageDataset_SceauxCastle/images" -o "./build/matches" -c 3 -f 3398
+				RESULT_DIR="./build"
+				echo "step 1: load all images"
+				node --trace-uncaught "${DST}/main_SfMInit_ImageListing.js" \
+					-i "./lib/ImageDataset_SceauxCastle/images" \
+					-o "${RESULT_DIR}/matches" \
+					-c "3" \
+					-f 3398
+					#-k "${CALIB_MATRIX}"
+				echo "step 2: feature detection"
+				node --trace-uncaught "${DST}/main_ComputeFeatures.js" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
+					-o "${RESULT_DIR}/matches" \
+					-m AKAZE_FLOAT \
+					-f 1
+				echo "step 3: feature matching"
+				node --trace-uncaught "${DST}/main_ComputeMatches.js" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
+					-o "${RESULT_DIR}/matches/matches.putative.bin" \
+					-f 1 \
+					-n ANNL2
+				echo "step 4: feature matching filter"
+				node --trace-uncaught "${DST}/main_GeometricFilter.js" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
+					-m "${RESULT_DIR}/matches/matches.putative.bin" \
+					-g f \
+					-o "${RESULT_DIR}/matches/matches.f.bin" \
+				echo "step 5: struction from motion"
+				node --trace-uncaught "${DST}/main_SfM.js" \
+					-s "INCREMENTAL" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
+					-m "${RESULT_DIR}/matches" \
+					-o "${RESULT_DIR}/sparse_model"
+				echo "step 6: compute color of the structure"
+				node --trace-uncaught "${DST}/main_ComputeSfM_DataColor.js" \
+					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+					-o "${RESULT_DIR}/sparse_model/colorized.ply"
+				echo "step 7: generate sparse point cloud"
+				node --trace-uncaught "${DST}/main_ComputeStructureFromKnownPoses.js" \
+					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+					-m "${RESULT_DIR}/matches" \
+					-o "${RESULT_DIR}/sparse_model/robust.ply"
+				echo "step 8: convert from OpenMVG format to OpenMVS format"
+				node --trace-uncaught "${DST}/main_openMVG2openMVS.js" \
+					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+					-o "${RESULT_DIR}/dense_model/scene.mvs" \
+					-d "${RESULT_DIR}/dense_model"
 				;;
 			"native" )
-				"${DST}/wasmMVG" -i "./lib/ImageDataset_SceauxCastle/images" -o "./build/matches" -c 3 -f 3398
+				RESULT_DIR="./build"
+				echo "step 1: load all images"
+				"${DST}/main_SfMInit_ImageListing" \
+					-i "./lib/ImageDataset_SceauxCastle/images" \
+					-o "${RESULT_DIR}/matches" \
+					-c "3" \
+					-f 3398
+					#-k "${CALIB_MATRIX}"
+				echo "step 2: feature detection"
+				"${DST}/main_ComputeFeatures" \
+					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-o "${RESULT_DIR}/matches" \
+					-m AKAZE_FLOAT \
+					-f 1
+				echo "step 3: feature matching"
+				"${DST}/main_ComputeMatches" \
+					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-o "${RESULT_DIR}/matches/matches.putative.bin" \
+					-f 1 \
+					-n ANNL2
+				echo "step 4: feature matching filter"
+				"${DST}/main_GeometricFilter" \
+					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-m "${RESULT_DIR}/matches/matches.putative.bin" \
+					-g f \
+					-o "${RESULT_DIR}/matches/matches.f.bin" \
+				echo "step 5: struction from motion"
+				"${DST}/main_SfM" \
+					-s "INCREMENTAL" \
+					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-m "${RESULT_DIR}/matches" \
+					-o "${RESULT_DIR}/sparse_model"
+				echo "step 6: compute color of the structure"
+				"${DST}/main_ComputeSfM_DataColor" \
+					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+					-o "${RESULT_DIR}/sparse_model/colorized.ply"
+				echo "step 7: generate sparse point cloud"
+				"${DST}/main_ComputeStructureFromKnownPoses" \
+					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+					-m "${RESULT_DIR}/matches" \
+					-o "${RESULT_DIR}/sparse_model/robust.ply"
+				echo "step 8: convert from OpenMVG format to OpenMVS format"
+				"${DST}/main_openMVG2openMVS" \
+					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+					-o "${RESULT_DIR}/dense_model/scene.mvs" \
+					-d "${RESULT_DIR}/dense_model"
 				;;
 		esac
 		;;
@@ -52,8 +147,7 @@ case $COMMAND in
 			"wasm" )
 				;;
 			"native" )
-				lldb "${DST}/wasmMVG"
-				# run -i "./lib/ImageDataset_SceauxCastle/images" -o "./build/matches" -c 3 -f 3398
+				lldb "${DST}/main"
 				;;
 		esac
 		;;
@@ -65,7 +159,7 @@ case $COMMAND in
 			"wasm" )
 				;;
 			"native" )
-				valgrind "${DST}/wasmMVG" -i "./lib/ImageDataset_SceauxCastle/images" -o "./build/matches" -c 3 -f 3398
+				valgrind "${DST}/main"
 				;;
 		esac
 		;;
