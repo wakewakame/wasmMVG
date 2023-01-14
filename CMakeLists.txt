@@ -35,7 +35,7 @@ ExternalProject_Add(
 
 		# emscripten 用オプション
 		-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-		-DBUILD_SHARED_LIBS=OFF
+		-DOpenMVG_BUILD_SHARED=OFF
 		-DM_LIBRARY=""
 		-DOpenMVG_USE_OPENMP=OFF
 
@@ -84,6 +84,14 @@ target_link_libraries(wasmMVG PRIVATE
 	openMVG_zlib
 	vlsift
 )
+
+# OpenMVG はコンパイルオプションによって構造体のメモリレイアウトが変わるが、
+# コンパイル時の型チェックでレイアウトは検査されないので不正なメモリアクセスにより segfault する。
+# 以下はそのエラーを回避するためのオプション。
+# 参照: https://github.com/openMVG/openMVG/blob/e1bbfe801986cd7171f36443a1573b0f69f3702d/src/CMakeLists.txt#L106
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_definitions(-DOPENMVG_STD_UNORDERED_MAP)
+endif()
 
 # emscripten 用のオプション
 if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
