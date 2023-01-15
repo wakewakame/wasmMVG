@@ -21,6 +21,13 @@ case $COMMAND in
 		BUILD_TYPE=${2:-DEBUG}  # 'DEBUG' or 'RelWithDebInfo'
 		CMAKE_OPTION=""
 		case $TARGET in
+			"all" )
+				./build.sh build native DEBUG
+				./build.sh build native RELEASE
+				./build.sh build wasm DEBUG
+				./build.sh build wasm RELEASE
+				exit 0
+				;;
 			"wasm" )
 				CMAKE_OPTION="-DCMAKE_TOOLCHAIN_FILE='./lib/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake'"
 				;;
