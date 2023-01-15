@@ -83,11 +83,6 @@ case $COMMAND in
 				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
 				#	-m "${RESULT_DIR}/matches" \
 				#	-o "${RESULT_DIR}/sparse_model/robust.ply"
-				#echo "step 8: convert from OpenMVG format to OpenMVS format"
-				#node --trace-uncaught "${DST}/main_openMVG2openMVS.js" \
-				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-				#	-o "${RESULT_DIR}/dense_model/scene.mvs" \
-				#	-d "${RESULT_DIR}/dense_model"
 				;;
 			"native" )
 				RESULT_DIR="./build"
@@ -100,26 +95,26 @@ case $COMMAND in
 					#-k "${CALIB_MATRIX}"
 				echo "step 2: feature detection"
 				"${DST}/main_ComputeFeatures" \
-					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
 					-o "${RESULT_DIR}/matches" \
 					-m AKAZE_FLOAT \
 					-f 1
 				echo "step 3: feature matching"
 				"${DST}/main_ComputeMatches" \
-					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
 					-o "${RESULT_DIR}/matches/matches.putative.bin" \
 					-f 1 \
 					-n ANNL2
 				echo "step 4: feature matching filter"
 				"${DST}/main_GeometricFilter" \
-					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
 					-m "${RESULT_DIR}/matches/matches.putative.bin" \
 					-g f \
 					-o "${RESULT_DIR}/matches/matches.f.bin" \
 				echo "step 5: struction from motion"
 				"${DST}/main_SfM" \
 					-s "INCREMENTAL" \
-					-i "${RESULT_DIR}/matches/sfm_dataon" \
+					-i "${RESULT_DIR}/matches/sfm_data.json" \
 					-m "${RESULT_DIR}/matches" \
 					-o "${RESULT_DIR}/sparse_model"
 				#echo "step 6: compute color of the structure"
@@ -131,11 +126,6 @@ case $COMMAND in
 				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
 				#	-m "${RESULT_DIR}/matches" \
 				#	-o "${RESULT_DIR}/sparse_model/robust.ply"
-				#echo "step 8: convert from OpenMVG format to OpenMVS format"
-				#"${DST}/main_openMVG2openMVS" \
-				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-				#	-o "${RESULT_DIR}/dense_model/scene.mvs" \
-				#	-d "${RESULT_DIR}/dense_model"
 				;;
 		esac
 		;;
@@ -147,7 +137,8 @@ case $COMMAND in
 			"wasm" )
 				;;
 			"native" )
-				lldb "${DST}/main"
+				lldb "${DST}/main_SfMInit_ImageListing"
+				# run -i "./lib/ImageDataset_SceauxCastle/images" -o "./build/matches" -c "3" -f 3398
 				;;
 		esac
 		;;
@@ -159,7 +150,12 @@ case $COMMAND in
 			"wasm" )
 				;;
 			"native" )
-				valgrind "${DST}/main"
+				RESULT_DIR="./build"
+				valgrind "${DST}/main_SfMInit_ImageListing" \
+					-i "./lib/ImageDataset_SceauxCastle/images" \
+					-o "${RESULT_DIR}/matches" \
+					-c "3" \
+					-f 3398
 				;;
 		esac
 		;;
