@@ -74,20 +74,20 @@ case $COMMAND in
 					-i "${RESULT_DIR}/matches/sfm_data.json" \
 					-m "${RESULT_DIR}/matches" \
 					-o "${RESULT_DIR}/sparse_model"
-				echo "step 6: compute color of the structure"
-				node --trace-uncaught "${DST}/main_ComputeSfM_DataColor.js" \
-					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-					-o "${RESULT_DIR}/sparse_model/colorized.ply"
-				echo "step 7: generate sparse point cloud"
-				node --trace-uncaught "${DST}/main_ComputeStructureFromKnownPoses.js" \
-					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-					-m "${RESULT_DIR}/matches" \
-					-o "${RESULT_DIR}/sparse_model/robust.ply"
-				echo "step 8: convert from OpenMVG format to OpenMVS format"
-				node --trace-uncaught "${DST}/main_openMVG2openMVS.js" \
-					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-					-o "${RESULT_DIR}/dense_model/scene.mvs" \
-					-d "${RESULT_DIR}/dense_model"
+				#echo "step 6: compute color of the structure"
+				#node --trace-uncaught "${DST}/main_ComputeSfM_DataColor.js" \
+				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+				#	-o "${RESULT_DIR}/sparse_model/colorized.ply"
+				#echo "step 7: generate sparse point cloud"
+				#node --trace-uncaught "${DST}/main_ComputeStructureFromKnownPoses.js" \
+				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+				#	-m "${RESULT_DIR}/matches" \
+				#	-o "${RESULT_DIR}/sparse_model/robust.ply"
+				#echo "step 8: convert from OpenMVG format to OpenMVS format"
+				#node --trace-uncaught "${DST}/main_openMVG2openMVS.js" \
+				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+				#	-o "${RESULT_DIR}/dense_model/scene.mvs" \
+				#	-d "${RESULT_DIR}/dense_model"
 				;;
 			"native" )
 				RESULT_DIR="./build"
@@ -122,20 +122,20 @@ case $COMMAND in
 					-i "${RESULT_DIR}/matches/sfm_dataon" \
 					-m "${RESULT_DIR}/matches" \
 					-o "${RESULT_DIR}/sparse_model"
-				echo "step 6: compute color of the structure"
-				"${DST}/main_ComputeSfM_DataColor" \
-					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-					-o "${RESULT_DIR}/sparse_model/colorized.ply"
-				echo "step 7: generate sparse point cloud"
-				"${DST}/main_ComputeStructureFromKnownPoses" \
-					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-					-m "${RESULT_DIR}/matches" \
-					-o "${RESULT_DIR}/sparse_model/robust.ply"
-				echo "step 8: convert from OpenMVG format to OpenMVS format"
-				"${DST}/main_openMVG2openMVS" \
-					-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
-					-o "${RESULT_DIR}/dense_model/scene.mvs" \
-					-d "${RESULT_DIR}/dense_model"
+				#echo "step 6: compute color of the structure"
+				#"${DST}/main_ComputeSfM_DataColor" \
+				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+				#	-o "${RESULT_DIR}/sparse_model/colorized.ply"
+				#echo "step 7: generate sparse point cloud"
+				#"${DST}/main_ComputeStructureFromKnownPoses" \
+				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+				#	-m "${RESULT_DIR}/matches" \
+				#	-o "${RESULT_DIR}/sparse_model/robust.ply"
+				#echo "step 8: convert from OpenMVG format to OpenMVS format"
+				#"${DST}/main_openMVG2openMVS" \
+				#	-i "${RESULT_DIR}/sparse_model/sfm_data.bin" \
+				#	-o "${RESULT_DIR}/dense_model/scene.mvs" \
+				#	-d "${RESULT_DIR}/dense_model"
 				;;
 		esac
 		;;
