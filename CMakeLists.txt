@@ -109,19 +109,23 @@ macro(make_app)
 	if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
 		target_compile_options(${APP_NAME} PRIVATE
 			-fwasm-exceptions                 # 例外のキャッチを有効化する
+			-gseparate-dwarf
 		)
 		target_link_options(${APP_NAME} PRIVATE
 			-fwasm-exceptions                 # 例外のキャッチを有効化する
-			"SHELL:-s NODERAWFS=1"            # ファイルの読み書きを可能にする
+
+			# ブラウザで wasm を動かすときは以下のオプションを削除しないと
+			# printf や std::cout が表示されなくなる
+			#"SHELL:-s NODERAWFS=1"            # ファイルの読み書きを可能にする
+
 			"SHELL:-s ALLOW_MEMORY_GROWTH=1"  # メモリ不足時の自動確保を有効化する
+			"SHELL:-s NO_EXIT_RUNTIME=1"
+			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall,addOnPostRun"
+			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free']"
 		)
 	endif()
 endmacro()
 
 # 実行ファイル作成
 make_app(SOURCE main.cpp)
-file(GLOB_RECURSE ALL_EXAMPLE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
-foreach(SOURCE IN LISTS ALL_EXAMPLE_FILES)
-	make_app(SOURCE "${SOURCE}")
-endforeach()
 

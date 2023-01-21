@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 
 cd "$(dirname "$(readlink "$0" || echo "$0")")"
@@ -10,11 +10,18 @@ case $COMMAND in
 		./lib/emsdk/emsdk install 3.1.28
 		./lib/emsdk/emsdk activate 3.1.28
 		mkdir -p examples
-		cp ./lib/openMVG/src/software/SfM/main_SfMInit_ImageListing.cpp ./examples/
-		cp ./lib/openMVG/src/software/SfM/main_ComputeFeatures.cpp      ./examples/
-		cp ./lib/openMVG/src/software/SfM/main_ComputeMatches.cpp       ./examples/
-		cp ./lib/openMVG/src/software/SfM/main_GeometricFilter.cpp      ./examples/
-		cp ./lib/openMVG/src/software/SfM/main_SfM.cpp                  ./examples/
+		EXAMPLES=(
+			"main_SfMInit_ImageListing"
+			"main_ComputeFeatures"
+			"main_ComputeMatches"
+			"main_GeometricFilter"
+			"main_SfM"
+		)
+		for EXAMPLE in "${EXAMPLES[@]}"; do
+			cat "./lib/openMVG/src/software/SfM/${EXAMPLE}.cpp" | \
+				sed "s/int main/int ${EXAMPLE}/" \
+				> "./examples/${EXAMPLE}.h"
+		done
 		;;
 	"build" )
 		TARGET=${1:-wasm}       # 'wasm' or 'native'

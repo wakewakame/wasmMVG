@@ -4,21 +4,12 @@ wasm を用いて [openMVG](https://github.com/openMVG/openMVG) をブラウザ�
 
 # 使い方
 
-## wasm 向けビルド
-
 ```bash
 ./docker/docker.sh
 ./build.sh init
-./build.sh build wasm DEBUG
-./build.sh run wasm DEBUG
+./build.sh build wasm RELEASE
+python -m http.server
 ```
 
-## ローカル向けビルド
-
-```bash
-./docker/docker.sh
-./build.sh init
-./build.sh build native DEBUG
-./build.sh run native DEBUG
-```
+`http://localhost:8000` にアクセスし、画像を選択して `compute` ボタンを押す。
 
