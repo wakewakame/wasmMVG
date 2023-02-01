@@ -12,4 +12,5 @@ python -m http.server
 ```
 
 `http://localhost:8000` にアクセスし、画像を選択して `compute` ボタンを押す。
+`wasmMVG/lib/ImageDataset_SceauxCastle/images` にサンプル画像があるので、これを利用することもできる。
 
