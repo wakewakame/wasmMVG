@@ -26,7 +26,7 @@ case $COMMAND in
 	"build" )
 		TARGET=${1:-wasm}       # 'wasm' or 'native'
 		BUILD_TYPE=${2:-DEBUG}  # 'DEBUG' or 'RelWithDebInfo'
-		CMAKE_OPTION=""
+		CMAKE_COMMAND=()
 		case $TARGET in
 			"all" )
 				./build.sh build native DEBUG
@@ -36,18 +36,17 @@ case $COMMAND in
 				exit 0
 				;;
 			"wasm" )
-				CMAKE_OPTION="-DCMAKE_TOOLCHAIN_FILE='./lib/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake'"
+				CMAKE_COMMAND=("./lib/emsdk/upstream/emscripten/emcmake" "cmake")
 				;;
 			"native" )
-				CMAKE_OPTION="-DCMAKE_C_COMPILER='clang' -DCMAKE_CXX_COMPILER='clang++'"
+				CMAKE_COMMAND=("cmake" "-DCMAKE_C_COMPILER='clang'" "-DCMAKE_CXX_COMPILER='clang++'")
 				;;
 		esac
 		DST="./build/${TARGET}/${BUILD_TYPE}"
-		cmake \
+		${CMAKE_COMMAND[@]} \
 			-S . -B "${DST}" \
 			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-			-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-			${CMAKE_OPTION}
+			-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 		cmake --build ${DST} -j12
 		;;
 	"run" )
