@@ -1,9 +1,0 @@
-[submodule "lib/emsdk"]
-	path = lib/emsdk
-	url = https://github.com/emscripten-core/emsdk.git
-[submodule "lib/openMVG"]
-	path = lib/openMVG
-	url = https://github.com/openMVG/openMVG.git
-[submodule "lib/ImageDataset_SceauxCastle"]
-	path = lib/ImageDataset_SceauxCastle
-	url = https://github.com/openMVG/ImageDataset_SceauxCastle.git

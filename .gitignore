@@ -1,2 +1,14 @@
-/build
+/build/*
+!/build/wasm
+/build/wasm/*
+!/build/wasm/RELEASE
+/build/wasm/RELEASE/*
+!/build/wasm/RELEASE/main.*
+/docker
 /examples
+/lib
+/CMakeLists.txt
+/main.cpp
+/README.md
+/build.sh
+/.gitmodule
