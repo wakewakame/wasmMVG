@@ -120,8 +120,8 @@ macro(make_app)
 
 			"SHELL:-s ALLOW_MEMORY_GROWTH=1"  # メモリ不足時の自動確保を有効化する
 			"SHELL:-s NO_EXIT_RUNTIME=1"
-			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall,addOnPostRun"
-			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free']"
+			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall,callMain"
+			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free','_main']"
 		)
 	endif()
 endmacro()

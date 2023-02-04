@@ -2,6 +2,8 @@
 
 wasm を用いて [openMVG](https://github.com/openMVG/openMVG) をブラウザで動かす試み。
 
+[demo](https://wakewakame.github.io/wasmMVG/)
+
 # 使い方
 
 ```bash
