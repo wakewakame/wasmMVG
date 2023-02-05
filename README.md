@@ -7,10 +7,13 @@ wasm を用いて [openMVG](https://github.com/openMVG/openMVG) をブラウザ�
 # 使い方
 
 ```bash
+git clone https://github.com/wakewakame/wasmMVG.git
+cd wasmMVG
+git submodule update --init --recursive
 ./docker/docker.sh
 ./build.sh init
 ./build.sh build wasm RELEASE
-python -m http.server
+python3 -m http.server 8000
 ```
 
 `http://localhost:8000` にアクセスし、画像を選択して `compute` ボタンを押す。
