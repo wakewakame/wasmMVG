@@ -113,6 +113,7 @@ macro(make_app)
 		)
 		target_link_options(${APP_NAME} PRIVATE
 			-fwasm-exceptions                 # 例外のキャッチを有効化する
+			-lembind
 
 			# ブラウザで wasm を動かすときは以下のオプションを削除しないと
 			# printf や std::cout が表示されなくなる
