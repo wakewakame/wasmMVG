@@ -13,6 +13,7 @@ RUN apt install -y xz-utils
 RUN apt install -y lbzip2
 RUN apt install -y npm
 RUN apt install -y curl
+RUN apt install -y jq
 RUN npm install -g n
 RUN n install 18.13.0
 

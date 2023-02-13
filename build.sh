@@ -2,6 +2,7 @@
 set -eu
 
 cd "$(dirname "$(readlink "$0" || echo "$0")")"
+SCRIPT_DIR="$(pwd)"
 
 COMMAND=$1; shift  # 'init' or 'build' or 'run' or 'lldb' or 'valgrind'
 case $COMMAND in
@@ -18,8 +19,8 @@ case $COMMAND in
 			"main_SfM"
 		)
 		for EXAMPLE in "${EXAMPLES[@]}"; do
-			cat "./lib/openMVG/src/software/SfM/${EXAMPLE}.cpp" | \
-				sed "s/int main/int ${EXAMPLE}/" \
+			cat "./lib/openMVG/src/software/SfM/${EXAMPLE}.cpp" \
+				| sed "s/int main/int ${EXAMPLE}/" \
 				> "./examples/${EXAMPLE}.h"
 		done
 		;;
@@ -47,6 +48,9 @@ case $COMMAND in
 			-S . -B "${DST}" \
 			-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
 			-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        cat "./build/${TARGET}/${BUILD_TYPE}/compile_commands.json" \
+            | jq ". |= map(select(.command != null).command |= sub(\" -gseparate-dwarf\"; \"\") + \" -I ${SCRIPT_DIR}/lib/emsdk/upstream/emscripten/cache/sysroot/include\")" \
+            > ./compile_commands.json
 		cmake --build ${DST} -j12
 		;;
 	"run" )
