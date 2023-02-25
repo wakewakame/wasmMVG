@@ -1,24 +1,18 @@
 import renderer from "./renderer.js";
 import vector from "./vector.js";
 
-const main = () => {
+const main = async () => {
 	// 配置する点群の座標
-	const points = [
-		[-1, -1, -1],
-		[+1, -1, -1],
-		[+1, +1, -1],
-		[-1, +1, -1],
-		[-1, -1, +1],
-		[+1, -1, +1],
-		[+1, +1, +1],
-		[-1, +1, +1],
-	];
-	for(let i = 0; i < 8; i++) {
-		const x = Math.random() * 2 - 1;
-		const y = Math.random() * 2 - 1;
-		const z = Math.random() * 2 - 1;
-		points.push([x, y, z]);
-	}
+	const plyAscii = await fetch("../example_images/model.ply").then(res => res.text());
+	const plyPointLength = Number(plyAscii.match(/element vertex [0-9]+/)[0].match(/[0-9]+/)[0]);
+	const plyFaceLength = Number(plyAscii.match(/element face [0-9]+/)[0].match(/[0-9]+/)[0]);
+	const plyEndHeaderLine = plyAscii.split("\n").findIndex(line => line === "end_header");
+	const points =
+		plyAscii.split("\n").slice(plyEndHeaderLine + 1, plyEndHeaderLine + plyPointLength + 1).
+		map(point => point.split(" ").map(num => Number(num) * 3.0)).map(([x, y, z]) => [x, -y + 2.0, -z]);
+	const faces =
+		plyAscii.split("\n").slice(plyEndHeaderLine + plyPointLength + 1, plyEndHeaderLine + plyPointLength + plyFaceLength + 1).
+		map(point => point.split(" ").map(num => Number(num)).slice(1));
 
 	// canvasの取得
 	const cam1_canvas = document.getElementById("cam1");  // カメラ1
@@ -33,16 +27,18 @@ const main = () => {
 	const cam2_cam = new renderer.CameraModelWithMouse(cam2_canvas);
 	const preview_cam = new renderer.CameraModelWithMouse(preview_canvas, "#00000000");
 	const axis_model = new renderer.AxisModel();
-	const points_model = new renderer.PointsModel("#77A9B0", points);
+	//const points_model = new renderer.PointsModel("#77A9B0", points);
+	const lines_model = new renderer.LinesModel("#77A9B0", points, faces);
 	scene.addModel(cam1_cam);
 	scene.addModel(cam2_cam);
 	scene.addModel(preview_cam);
 	scene.addModel(axis_model);
-	scene.addModel(points_model);
+	//scene.addModel(points_model);
+	scene.addModel(lines_model);
 
 	// 8点アルゴリズムによって求めたカメラと点群の位置をシーンに追加
 	const cam2_cam_reconstructed = new renderer.VirtualCameraModel(0, 0);
-	const points_model_reconstructed = new renderer.PointsModel("#CCA990");
+	const points_model_reconstructed = new renderer.LinesModel("#CCA990");
 	scene.addModel(cam2_cam_reconstructed);
 	scene.addModel(points_model_reconstructed);
 
@@ -134,6 +130,7 @@ const main = () => {
 		cam2_cam_reconstructed.view       = Rt_.multiply(cam1_view);
 		cam2_cam_reconstructed.projection = cam2_cam.projection;
 		points_model_reconstructed.points = points_;
+		//points_model_reconstructed.lines = points_;
 		scene.update();
 	};
 	cam1_canvas.addEventListener("pointerup", async () => { calc(); });

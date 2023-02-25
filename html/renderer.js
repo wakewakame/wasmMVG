@@ -87,7 +87,7 @@ const CameraModel = class extends VirtualCameraModel {
 		this.canvas.width  = this.width;
 		this.canvas.height = this.height;
 		this.context2d = canvas.getContext("2d");
-		this.scale = 4.0;
+		this.scale = 2.0;
 	}
 	clear() { this.context2d.clearRect(0, 0, this.canvas.width, this.canvas.height); }
 	point2d(x, y, hex = "#77A9B0") {
@@ -209,6 +209,28 @@ const PointsModel = class extends Model {
 		this.scene.update();
 	}
 }
+const LinesModel = class extends Model {
+	constructor(color = "#77A9B0", points = new Array(), lines = new Array()) {
+		super();
+		this.points = points;
+		this.lines = lines;
+		this.color = color;
+	}
+	draw(cam) {
+		for(const line of this.lines) {
+			const points = this.points;
+			const p = [points[line[0]], points[line[1]], points[line[2]]];
+			cam.line3d(...p[0], ...p[1], 1, this.color);
+			cam.line3d(...p[1], ...p[2], 1, this.color);
+			cam.line3d(...p[2], ...p[0], 1, this.color);
+		}
+	}
+	updatePoints(points, lines) {
+		this.points = points;
+		this.lines = lines;
+		this.scene.update();
+	}
+}
 
 export default {
 	Scene: Scene,
@@ -218,4 +240,5 @@ export default {
 	CameraModelWithMouse: CameraModelWithMouse,
 	AxisModel: AxisModel,
 	PointsModel: PointsModel,
+	LinesModel: LinesModel,
 };
