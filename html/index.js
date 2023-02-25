@@ -150,6 +150,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// wasm 読み込み
 	const scriptElem = document.createElement("script");
-	scriptElem.src = "../build/wasm/RELEASE/main.js";
+	scriptElem.src = "../build/wasm/RelWithDebInfo/main.js";
 	document.body.appendChild(scriptElem);
 });

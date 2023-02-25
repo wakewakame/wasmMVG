@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
 project(wasmMVG)
 
 # openMVG のビルド、インストール
@@ -57,13 +57,17 @@ endif()
 
 # 実行ファイルを作成するマクロ
 macro(make_app)
-	set(oneValueArgs SOURCE)
-	cmake_parse_arguments(ARG "" "${oneValueArgs}" "" ${ARGN})
-	get_filename_component(APP_NAME "${ARG_SOURCE}" NAME_WE)
-	add_executable(${APP_NAME} ${ARG_SOURCE})
-	target_compile_features(${APP_NAME} PUBLIC cxx_std_11)  # C++ のバージョンを openMVG に合わせる
-	add_dependencies(${APP_NAME} ${OPENMVG_TARGET_NAME})
-	target_include_directories(${APP_NAME} PRIVATE
+	set(oneValueArgs APP_NAME)
+	set(multiValueArgs SOURCES LIBRARIES)
+	cmake_parse_arguments(ARG "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+	add_executable(${ARG_APP_NAME}
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/wasmMVG.cpp"
+		${ARG_SOURCES}
+	)
+	target_compile_features(${ARG_APP_NAME} PUBLIC cxx_std_11)  # C++ のバージョンを openMVG に合わせる
+	add_dependencies(${ARG_APP_NAME} ${OPENMVG_TARGET_NAME})
+	target_include_directories(${ARG_APP_NAME} PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
 		"${OPENMVG_DIR}/install/include"
 		"${OPENMVG_DIR}/install/include/openMVG"
 		"${OPENMVG_DIR}/install/include/openMVG/third_party"
@@ -72,10 +76,11 @@ macro(make_app)
 		"${OPENMVG_DIR}/install/include/openMVG_dependencies"
 		"${OPENMVG_DIR}/install/include/openMVG_dependencies/cereal/include"
 	)
-	target_link_directories(${APP_NAME} PRIVATE "${OPENMVG_DIR}/install/lib")
+	target_link_directories(${ARG_APP_NAME} PRIVATE "${OPENMVG_DIR}/install/lib")
 	# 以下は ${OPENMVG_DIR}/install/lib に生成された lib*.a ファイルを並べている。
 	# なお、依存されているライブラリは依存しているライブラリよりも下に書く必要がある。
-	target_link_libraries(${APP_NAME} PRIVATE
+	target_link_libraries(${ARG_APP_NAME} PRIVATE
+		${ARG_LIBRARIES}
 		openMVG_exif
 		openMVG_easyexif
 		openMVG_sfm
@@ -107,11 +112,14 @@ macro(make_app)
 
 	# emscripten 用のオプション
 	if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
-		target_compile_options(${APP_NAME} PRIVATE
+		target_compile_options(${ARG_APP_NAME} PRIVATE
 			-fwasm-exceptions                 # 例外のキャッチを有効化する
 			-gseparate-dwarf
+			-Wall -Werror
+			-Wno-bitwise-instead-of-logical
+			-Wno-unused-but-set-variable
 		)
-		target_link_options(${APP_NAME} PRIVATE
+		target_link_options(${ARG_APP_NAME} PRIVATE
 			-fwasm-exceptions                 # 例外のキャッチを有効化する
 			-lembind
 
@@ -124,9 +132,35 @@ macro(make_app)
 			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall,callMain"
 			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free','_main']"
 		)
+	else()
+		target_compile_options(${ARG_APP_NAME} PRIVATE
+			-Wall -Werror
+			-Wno-bitwise-instead-of-logical
+			-Wno-unused-but-set-variable
+		)
 	endif()
 endmacro()
 
 # 実行ファイル作成
-make_app(SOURCE main.cpp)
+make_app(APP_NAME main SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 
+# テストの追加
+# 参考元: https://google.github.io/googletest/quickstart-cmake.html
+if (NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
+	include(FetchContent)
+	FetchContent_Declare(
+	  googletest
+	  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+	)
+	# For Windows: Prevent overriding the parent project's compiler/linker settings
+	set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+	FetchContent_MakeAvailable(googletest)
+	enable_testing()
+	make_app(
+		APP_NAME wasmMVG_test
+		SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/test.cpp"
+		LIBRARIES GTest::gtest_main
+	)
+	include(GoogleTest)
+	gtest_discover_tests(wasmMVG_test)
+endif()
