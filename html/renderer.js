@@ -219,7 +219,7 @@ const LinesModel = class extends Model {
 	draw(cam) {
 		for(const line of this.lines) {
 			const points = this.points;
-			const p = [points[line[0]], points[line[1]], points[line[2]]];
+			const p = [points[line[0]], points[line[1]], points[line[2]]].map(p => p.slice(0, 3));
 			cam.line3d(...p[0], ...p[1], 1, this.color);
 			cam.line3d(...p[1], ...p[2], 1, this.color);
 			cam.line3d(...p[2], ...p[0], 1, this.color);
