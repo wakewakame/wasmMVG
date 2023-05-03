@@ -1,0 +1,13 @@
+{
+  "name": "wasmMVG",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "./main.js",
+  "files": [
+	"./main.js",
+	"./main.wasm"
+  ],
+  "author": "",
+  "license": "ISC"
+}

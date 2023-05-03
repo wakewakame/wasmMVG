@@ -3,6 +3,7 @@
 #ifdef __EMSCRIPTEN__
 
 EMSCRIPTEN_BINDINGS(wasm_mvg) {
+	emscripten::function("hello", &hello);
 	emscripten::function("getRelativePose", &getRelativePoseJs);
 	emscripten::function("getPose", &getPoseJs);
 	emscripten::function("triangulation", &triangulationJs);

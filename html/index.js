@@ -1,7 +1,8 @@
 import renderer from "./renderer.js";
 import vector from "./vector.js";
+import wasmMVG from '../build/wasm/RELEASE/main.js';
 
-const main = async () => {
+const main = async (Module) => {
 	// 配置する点群の座標
 	const plyAscii = await fetch("../example_images/model.ply").then(res => res.text());
 	const plyPointLength = Number(plyAscii.match(/element vertex [0-9]+/)[0].match(/[0-9]+/)[0]);
@@ -220,16 +221,10 @@ const main = async () => {
 	});
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-	window.Module = {
-		// wasm の読み込みが完了したときのコールバック
-		onRuntimeInitialized: () => { main(); },
+document.addEventListener("DOMContentLoaded", async () => {
+  const Module = await wasmMVG({
 		// main 関数の自動実行を無効化
 		noInitialRun: true
-	};
-
-	// wasm 読み込み
-	const scriptElem = document.createElement("script");
-	scriptElem.src = "../build/wasm/RelWithDebInfo/main.js";
-	document.body.appendChild(scriptElem);
+  });
+  main(Module);
 });

@@ -114,7 +114,7 @@ macro(make_app)
 	if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
 		target_compile_options(${ARG_APP_NAME} PRIVATE
 			-fwasm-exceptions                 # 例外のキャッチを有効化する
-			-gseparate-dwarf
+			#-gseparate-dwarf                  # DWARF デバッグ情報を出力する
 			-Wall -Werror
 			-Wno-bitwise-instead-of-logical
 			-Wno-unused-but-set-variable
@@ -129,6 +129,9 @@ macro(make_app)
 
 			"SHELL:-s ALLOW_MEMORY_GROWTH=1"  # メモリ不足時の自動確保を有効化する
 			"SHELL:-s NO_EXIT_RUNTIME=1"
+			"SHELL:-s EXPORT_ES6=1"
+			"SHELL:-s MODULARIZE=1"
+			"SHELL:-s EXPORT_NAME=wasmMVG"
 			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall,callMain"
 			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free','_main']"
 		)

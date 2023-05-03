@@ -12,7 +12,7 @@ cd wasmMVG
 git submodule update --init --recursive
 ./docker/docker.sh
 ./build.sh init
-./build.sh build wasm RelWithDebInfo
+./build.sh build wasm RELEASE
 python3 -m http.server 8000
 ```
 

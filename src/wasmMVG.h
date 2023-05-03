@@ -29,6 +29,13 @@ SfM_Data sceneToSfM_Data(const Scene& scene);
 Scene SfM_DataToScene(const SfM_Data &sfm_data);
 
 /**
+ * @brief wasm 動作確認用の関数
+ * @param[in] name 任意の文字列
+ * @return         "hello <name>" という文字列
+ */
+std::string hello(const std::string &name);
+
+/**
  * @brief 2台のカメラ間の相対姿勢を推定
  * @param[in] cam1_intrinsic      カメラ1のカメラ内部パラメータ
  * @param[in] cam1_points         カメラ1に映る特徴点のスクリーン座標 (最低でも13個)
@@ -92,6 +99,7 @@ Val cameraToVal(const Camera &camera);
 Scene valToScene(const Val &val);
 Val sceneToVal(const Scene &scene);
 
+std::string hello(const std::string& name);
 Val getRelativePoseJs(
 	const Val &cam1_intrinsic, const Val &cam1_points,
 	const Val &cam2_intrinsic, const Val &cam2_points,

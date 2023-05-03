@@ -13,7 +13,7 @@ case $COMMAND in
 		;;
 	"build" )
 		TARGET=${1:-wasm}  # 'wasm' or 'native'
-		BUILD_TYPE=${2:-RelWithDebInfo}  # 'DEBUG' or 'RelWithDebInfo'
+		BUILD_TYPE=${2:-RELEASE}  # 'DEBUG' | 'RELEASE' | 'RelWithDebInfo'
 		CMAKE_COMMAND=()
 		case $TARGET in
 			"all" )
@@ -39,6 +39,10 @@ case $COMMAND in
             | jq ". |= map(select(.command != null).command |= sub(\" -gseparate-dwarf\"; \"\") + \" -I ${SCRIPT_DIR}/lib/emsdk/upstream/emscripten/cache/sysroot/include\")" \
             > ./compile_commands.json
 		cmake --build ${DST} -j12
+		if [ $TARGET == "wasm" ]; then
+			cp ./assets/package.json "${DST}/package.json"
+			cd ${DST}; npm pack; cd -
+		fi
 		;;
 	"test" )
 		./build.sh build native DEBUG
