@@ -132,8 +132,8 @@ macro(make_app)
 			"SHELL:-s EXPORT_ES6=1"
 			"SHELL:-s MODULARIZE=1"
 			"SHELL:-s EXPORT_NAME=wasmMVG"
-			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall,callMain"
-			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free','_main']"
+			"SHELL:-s EXPORTED_RUNTIME_METHODS=cwrap,ccall"
+			"SHELL:-s EXPORTED_FUNCTIONS=['_malloc','_free']"
 		)
 	else()
 		target_compile_options(${ARG_APP_NAME} PRIVATE
