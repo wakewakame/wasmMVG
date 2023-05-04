@@ -38,7 +38,7 @@ case $COMMAND in
         cat "./build/${TARGET}/${BUILD_TYPE}/compile_commands.json" \
             | jq ". |= map(select(.command != null).command |= sub(\" -gseparate-dwarf\"; \"\") + \" -I ${SCRIPT_DIR}/lib/emsdk/upstream/emscripten/cache/sysroot/include\")" \
             > ./compile_commands.json
-		cmake --build ${DST} -j12
+		cmake --build ${DST} -j$(nproc)
 		if [ $TARGET == "wasm" ]; then
 			cp ./assets/package.json "${DST}/package.json"
 			cp ./assets/main.d.ts "${DST}/main.d.ts"
