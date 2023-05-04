@@ -41,6 +41,7 @@ case $COMMAND in
 		cmake --build ${DST} -j12
 		if [ $TARGET == "wasm" ]; then
 			cp ./assets/package.json "${DST}/package.json"
+			cp ./assets/main.d.ts "${DST}/main.d.ts"
 			cd ${DST}; npm pack; cd -
 		fi
 		;;

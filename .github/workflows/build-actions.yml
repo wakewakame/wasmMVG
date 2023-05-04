@@ -12,7 +12,10 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v3
-      - run: sudo apt install -y clang cmake nodejs npm jq
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: sudo apt install -y clang cmake jq
       - run: ./build.sh init
       - run: ./build.sh build wasm RELEASE
-      - run: gh release create ${{ github.ref }} ./build/wasm/RELEASE/wasmMVG-0.0.1.tgz
+      - run: gh release create ${{ github.ref }} ./build/wasm/RELEASE/wasmMVG-0.0.2.tgz
