@@ -38,14 +38,14 @@ export type Scene = {
 };
 export type Module = {
   hello: (name: string) => string,
-	getRelativePose: (
+  getRelativePose: (
     cam1_intrinsic: Intrinsic, cam1_points: Camera,
     cam2_intrinsic: Intrinsic, cam2_points: Camera,
     max_iteration_count: number
   ) => Pose | Error,
-	getPose: (intrinsic: Intrinsic, points_2d: Vec2[], points_3d: Vec3[]) => Pose | Error,
-	triangulation: (cam1: Camera, cam1_points: Vec2[], cam2: Camera, cam2_points: Vec2[]) => Vec3[] | Error,
-	bundleAdjustment: (scene: Scene) => Scene | Error,
+  getPose: (intrinsic: Intrinsic, points_2d: Vec2[], points_3d: Vec3[]) => Pose | Error,
+  triangulation: (cam1: Camera, cam1_points: Vec2[], cam2: Camera, cam2_points: Vec2[]) => Vec3[] | Error,
+  bundleAdjustment: (scene: Scene) => Scene | Error,
 };
 declare function wasmMVG(): Promise<Module>;
 export default wasmMVG;
