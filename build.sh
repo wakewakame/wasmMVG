@@ -8,8 +8,8 @@ COMMAND=$1; shift  # 'init' or 'build' or 'test'
 case $COMMAND in
 	"init" )
 		git submodule update --init --recursive
-		./lib/emsdk/emsdk install 3.1.28
-		./lib/emsdk/emsdk activate 3.1.28
+		./lib/emsdk/emsdk install 3.1.21
+		./lib/emsdk/emsdk activate 3.1.21
 		;;
 	"build" )
 		TARGET=${1:-wasm}  # 'wasm' or 'native'
