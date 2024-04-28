@@ -4,7 +4,7 @@ wasm を用いて [openMVG](https://github.com/openMVG/openMVG) をブラウザ�
 
 # インストール
 
-`npm install https://github.com/wakewakame/wasmMVG/releases/download/0.0.2/wasmMVG-0.0.2.tgz`
+`npm install https://github.com/wakewakame/wasmMVG/releases/download/0.0.3/wasmMVG-0.0.3.tgz`
 
 # ビルド
 

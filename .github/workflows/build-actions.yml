@@ -18,4 +18,4 @@ jobs:
       - run: sudo apt install -y clang cmake jq
       - run: ./build.sh init
       - run: ./build.sh build wasm RELEASE
-      - run: gh release create ${{ github.ref }} ./build/wasm/RELEASE/wasmMVG-0.0.2.tgz
+      - run: gh release create ${{ github.ref }} ./build/wasm/RELEASE/wasmMVG-${GITHUB_REF#refs/*/}.tgz
