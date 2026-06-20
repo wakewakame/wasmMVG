@@ -64,7 +64,7 @@ macro(make_app)
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/wasmMVG.cpp"
 		${ARG_SOURCES}
 	)
-	target_compile_features(${ARG_APP_NAME} PUBLIC cxx_std_11)  # C++ のバージョンを openMVG に合わせる
+	target_compile_features(${ARG_APP_NAME} PUBLIC cxx_std_17)
 	add_dependencies(${ARG_APP_NAME} ${OPENMVG_TARGET_NAME})
 	target_include_directories(${ARG_APP_NAME} PRIVATE
 		"${CMAKE_CURRENT_SOURCE_DIR}/src"

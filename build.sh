@@ -8,8 +8,8 @@ COMMAND=$1; shift  # 'init' or 'build' or 'test'
 case $COMMAND in
 	"init" )
 		git submodule update --init --recursive
-		./lib/emsdk/emsdk install 3.1.58
-		./lib/emsdk/emsdk activate 3.1.58
+		./lib/emsdk/emsdk install 6.0.0
+		./lib/emsdk/emsdk activate 6.0.0
 		;;
 	"build" )
 		TARGET=${1:-wasm}  # 'wasm' or 'native'
@@ -38,11 +38,11 @@ case $COMMAND in
         cat "./build/${TARGET}/${BUILD_TYPE}/compile_commands.json" \
             | jq ". |= map(select(.command != null).command |= sub(\" -gseparate-dwarf\"; \"\") + \" -I ${SCRIPT_DIR}/lib/emsdk/upstream/emscripten/cache/sysroot/include\")" \
             > ./compile_commands.json
-		cmake --build ${DST} -j$(nproc)
+		cmake --build "${DST}" -j$(nproc)
 		if [ $TARGET == "wasm" ]; then
 			cp ./assets/package.json "${DST}/package.json"
 			cp ./assets/main.d.ts "${DST}/main.d.ts"
-			cd ${DST}; npm pack; cd -
+			cd "${DST}"; npm pack --cache "${DST}/.npm"; cd -
 		fi
 		;;
 	"test" )
