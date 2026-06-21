@@ -72,10 +72,11 @@ const main = async (Module) => {
 		};
 		const points1 = cam1.worldToScreen(points).map(point => [point.x, point.y].map(p => (p + px_rand * (Math.random() * 2.0 - 1.0))));
 		const points2 = cam2.worldToScreen(points).map(point => [point.x, point.y].map(p => (p + px_rand * (Math.random() * 2.0 - 1.0))));
-		const data = (i === 0) ?
+		let data = (i === 0) ?
 			Module.getRelativePose(camera1, points1, camera2, points2, 4096) :
 			Module.getPose(camera2, points2, points_reconstruct_model.points.map(p => p.slice(0, 3)));
-		if (data === null) { continue; }
+		if (data.result === "error") { continue; }
+		data = data.value;
 		let Rt_ = DOMMatrix.fromFloat64Array(new Float64Array([
 			data["rotation"][0][0], data["rotation"][0][1], data["rotation"][0][2], 0,
 			data["rotation"][1][0], data["rotation"][1][1], data["rotation"][1][2], 0,
@@ -108,8 +109,8 @@ const main = async (Module) => {
 				},
 				points2
 			);
-			if (data2 === null) { continue; }
-			data["points"] = data2;
+			if (data2.result === "error") { continue; }
+			data["points"] = data2.value;
 
 			// points_をcam1座標系から世界座標系へ変形
 			points_reconstruct_model.points = data["points"].map(([x, y, z]) => {
@@ -158,7 +159,9 @@ const main = async (Module) => {
 		//cam2.projection = cam2_cam.projection;
 
 		if ((i === num_camera-1) || (i % 50 === 0)) {
-			ba_scene = Module.bundleAdjustment(ba_scene);
+			const ba_result = Module.bundleAdjustment(ba_scene);
+			if (ba_result.result === "error") { continue; }
+			ba_scene = ba_result.value;
 			Object.entries(ba_scene["cameras"]).forEach(([index, camera]) => {
 				const data = camera["pose"];
 				const ba_Rt = DOMMatrix.fromFloat64Array(new Float64Array([

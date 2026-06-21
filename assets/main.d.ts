@@ -2,6 +2,11 @@ export type Error = {
   result: "error",
   description: string,
 };
+export type Ok<T> = {
+  result: "ok",
+  value: T,
+};
+export type Result<T> = Ok<T> | Error;
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 export type Mat3 = [Vec3, Vec3, Vec3];
@@ -39,13 +44,13 @@ export type Scene = {
 export type Module = {
   hello: (name: string) => string,
   getRelativePose: (
-    cam1_intrinsic: Intrinsic, cam1_points: Camera,
-    cam2_intrinsic: Intrinsic, cam2_points: Camera,
+    cam1_intrinsic: Intrinsic, cam1_points: Vec2[],
+    cam2_intrinsic: Intrinsic, cam2_points: Vec2[],
     max_iteration_count: number
-  ) => Pose | Error,
-  getPose: (intrinsic: Intrinsic, points_2d: Vec2[], points_3d: Vec3[]) => Pose | Error,
-  triangulation: (cam1: Camera, cam1_points: Vec2[], cam2: Camera, cam2_points: Vec2[]) => Vec3[] | Error,
-  bundleAdjustment: (scene: Scene) => Scene | Error,
+  ) => Result<Pose>,
+  getPose: (intrinsic: Intrinsic, points_2d: Vec2[], points_3d: Vec3[]) => Result<Pose>,
+  triangulation: (cam1: Camera, cam1_points: Vec2[], cam2: Camera, cam2_points: Vec2[]) => Result<Vec3[]>,
+  bundleAdjustment: (scene: Scene) => Result<Scene>,
 };
 declare function wasmMVG(): Promise<Module>;
 export default wasmMVG;

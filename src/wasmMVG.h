@@ -42,10 +42,11 @@ std::string hello(const std::string &name);
  * @param[in] cam2_intrinsic      カメラ2のカメラ内部パラメータ
  * @param[in] cam2_points         cam1_points に対応するカメラ2の特徴点のスクリーン座標
  * @param[in] max_iteration_count 最大反復回数
- * @return (カメラ1からカメラ2への相対姿勢, 成功した場合は true)
+ * @return カメラ1からカメラ2への相対姿勢
  * @exception 引数の行列サイズが不正だった場合に std::invalid_argument が発生
+ * @exception 相対姿勢の推定に失敗した場合に std::runtime_error が発生
  */
-std::pair<Pose3, bool> getRelativePose(
+Pose3 getRelativePose(
 	const Intrinsic &cam1_intrinsic, const Mat &cam1_points,
 	const Intrinsic &cam2_intrinsic, const Mat &cam2_points,
 	const size_t max_iteration_count
@@ -58,6 +59,7 @@ std::pair<Pose3, bool> getRelativePose(
  * @param[in] points_3d カメラに映る特徴点の現実座標
  * @return カメラの姿勢
  * @exception 引数の行列サイズが不正だった場合に std::invalid_argument が発生
+ * @exception 姿勢の推定に失敗した場合に std::runtime_error が発生
  */
 Pose3 getPose(const Intrinsic &intrinsic, const Mat &points_2d, const Mat &points_3d);
 
@@ -75,9 +77,10 @@ Mat triangulation(const Camera &cam1, const Mat &cam1_points, const Camera &cam2
 /**
  * @brief バンドル調整
  * @param[in] scene バンドル調整を行うシーン
- * @return (バンドル調整後のシーン, 成功した場合は true)
+ * @return バンドル調整後のシーン
+ * @exception バンドル調整に失敗した場合に std::runtime_error が発生
  */
-std::pair<Scene, bool> bundleAdjustment(const Scene &scene);
+Scene bundleAdjustment(const Scene &scene);
 
 #ifdef __EMSCRIPTEN__
 
@@ -86,6 +89,7 @@ std::pair<Scene, bool> bundleAdjustment(const Scene &scene);
 
 using Val = emscripten::val;
 Val error(const std::string &description);
+Val ok(const Val &value);
 Mat valToMat(const Val &val);
 Val matToVal(const Mat &mat);
 Vec valToVec(const Val &val);
@@ -99,7 +103,6 @@ Val cameraToVal(const Camera &camera);
 Scene valToScene(const Val &val);
 Val sceneToVal(const Scene &scene);
 
-std::string hello(const std::string& name);
 Val getRelativePoseJs(
 	const Val &cam1_intrinsic, const Val &cam1_points,
 	const Val &cam2_intrinsic, const Val &cam2_points,

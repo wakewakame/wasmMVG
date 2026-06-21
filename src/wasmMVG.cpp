@@ -58,10 +58,11 @@ std::string hello(const std::string& name) {
  * @param[in] cam2_intrinsic      カメラ2のカメラ内部パラメータ
  * @param[in] cam2_points         cam1_points に対応するカメラ2の特徴点のスクリーン座標
  * @param[in] max_iteration_count 最大反復回数
- * @return (カメラ1からカメラ2への相対姿勢, 成功した場合は true)
+ * @return カメラ1からカメラ2への相対姿勢
  * @exception 引数の行列サイズが不正だった場合に std::invalid_argument が発生
+ * @exception 相対姿勢の推定に失敗した場合に std::runtime_error が発生
  */
-std::pair<Pose3, bool> getRelativePose(
+Pose3 getRelativePose(
 	const Intrinsic &cam1_intrinsic, const Mat &cam1_points,
 	const Intrinsic &cam2_intrinsic, const Mat &cam2_points,
 	const size_t max_iteration_count
@@ -90,9 +91,9 @@ std::pair<Pose3, bool> getRelativePose(
 		cam1_intrinsic.get(), cam2_intrinsic.get(), cam1_points_undisto, cam2_points_undisto, relativePose_info,
 		{cam1_intrinsic->w(), cam1_intrinsic->h()}, {cam2_intrinsic->w(), cam2_intrinsic->h()},
 		max_iteration_count
-	)) { return { {}, false }; }
+	)) { throw std::runtime_error("Failed to estimate relative pose."); }
 
-	return { relativePose_info.relativePose, true };
+	return relativePose_info.relativePose;
 }
 
 /**
@@ -102,6 +103,7 @@ std::pair<Pose3, bool> getRelativePose(
  * @param[in] points_3d カメラに映る特徴点の現実座標
  * @return カメラの姿勢
  * @exception 引数の行列サイズが不正だった場合に std::invalid_argument が発生
+ * @exception 姿勢の推定に失敗した場合に std::runtime_error が発生
  */
 Pose3 getPose(const Intrinsic &intrinsic, const Mat &points_2d, const Mat &points_3d) {
 	if (points_2d.rows() != 2) {
@@ -130,13 +132,13 @@ Pose3 getPose(const Intrinsic &intrinsic, const Mat &points_2d, const Mat &point
 
 	// カメラ位置の推定
 	Pose3 pose;
-	openMVG::sfm::SfM_Localizer::Localize(
+	if (!openMVG::sfm::SfM_Localizer::Localize(
 		openMVG::resection::SolverType::DEFAULT,
 		{intrinsic->w(), intrinsic->h()},
 		intrinsic.get(),
 		resection_data,
 		pose
-	);
+	)) { throw std::runtime_error("Failed to estimate pose."); }
 
 	return pose;
 }
@@ -190,9 +192,10 @@ Mat triangulation(const Camera &cam1, const Mat &cam1_points, const Camera &cam2
 /**
  * @brief バンドル調整
  * @param[in] scene バンドル調整を行うシーン
- * @return (バンドル調整後のシーン, 成功した場合は true)
+ * @return バンドル調整後のシーン
+ * @exception バンドル調整に失敗した場合に std::runtime_error が発生
  */
-std::pair<Scene, bool> bundleAdjustment(const Scene &scene) {
+Scene bundleAdjustment(const Scene &scene) {
 	SfM_Data sfm_data = sceneToSfM_Data(scene);
 
 	const openMVG::sfm::Optimize_Options ba_refine_options(
@@ -204,10 +207,10 @@ std::pair<Scene, bool> bundleAdjustment(const Scene &scene) {
 	);
 	openMVG::sfm::Bundle_Adjustment_Ceres bundle_adjustment_obj;
 	if (!bundle_adjustment_obj.Adjust(sfm_data, ba_refine_options)) {
-		return { {}, false };
+		throw std::runtime_error("Failed to bundle adjustment.");
 	}
 
-	return { SfM_DataToScene(sfm_data), true };
+	return SfM_DataToScene(sfm_data);
 }
 
 #ifdef __EMSCRIPTEN__
@@ -216,6 +219,12 @@ Val error(const std::string &description) {
 	Val result = Val::object();
 	result.set("result", Val("error"));
 	result.set("description", Val(description));
+	return result;
+}
+Val ok(const Val &value) {
+	Val result = Val::object();
+	result.set("result", Val("ok"));
+	result.set("value", value);
 	return result;
 }
 Mat valToMat(const Val &val) {
@@ -278,6 +287,9 @@ Intrinsic valToIntrinsic(const Val &val) {
 			val["k2"].as<double>(),     // TODO: 未指定の場合は 0 にする
 			val["k3"].as<double>()      // TODO: 未指定の場合は 0 にする
 		});
+	}
+	if (!intrinsic) {
+		throw std::invalid_argument("Unsupported intrinsic type: " + intrinsic_type);
 	}
 	return intrinsic;
 }
@@ -389,31 +401,26 @@ Val getRelativePoseJs(
 	const size_t max_iteration_count
 ) {
 	try {
-		const std::pair<Pose3, bool> pose = getRelativePose(
+		const Pose3 pose = getRelativePose(
 			valToIntrinsic(cam1_intrinsic), valToMat(cam1_points),
 			valToIntrinsic(cam2_intrinsic), valToMat(cam2_points),
 			max_iteration_count
 		);
-		if (!pose.second) { return error("Failed to estimate pose."); }
-		return poseToVal(pose.first);
-	} 
-	catch (const std::invalid_argument &e) {
+		return ok(poseToVal(pose));
+	}
+	catch (const std::exception &e) {
 		return error(e.what());
 	}
-
-	return error("Unexpected error.");
 }
 
 Val getPoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d) {
 	try {
 		const Pose3 pose = getPose(valToIntrinsic(intrinsic), valToMat(points_2d), valToMat(points_3d));
-		return poseToVal(pose);
-	} 
-	catch (const std::invalid_argument &e) {
+		return ok(poseToVal(pose));
+	}
+	catch (const std::exception &e) {
 		return error(e.what());
 	}
-
-	return error("Unexpected error.");
 }
 
 Val triangulationJs(const Val &cam1, const Val &cam1_points, const Val &cam2, const Val &cam2_points) {
@@ -422,19 +429,20 @@ Val triangulationJs(const Val &cam1, const Val &cam1_points, const Val &cam2, co
 			valToCamera(cam1), valToMat(cam1_points),
 			valToCamera(cam2), valToMat(cam2_points)
 		);
-		return matToVal(points_3d);
+		return ok(matToVal(points_3d));
 	}
-	catch (const std::invalid_argument &e) {
+	catch (const std::exception &e) {
 		return error(e.what());
 	}
-
-	return error("Unexpected error.");
 }
 
 Val bundleAdjustmentJs(const Val &scene) {
-	const std::pair<Scene, bool> result = bundleAdjustment(valToScene(scene));
-	if (!result.second) { return error("Failed to bundle adjustment."); }
-	return sceneToVal(result.first);
+	try {
+		return ok(sceneToVal(bundleAdjustment(valToScene(scene))));
+	}
+	catch (const std::exception &e) {
+		return error(e.what());
+	}
 }
 
 #endif  // ifdef __EMSCRIPTEN__
