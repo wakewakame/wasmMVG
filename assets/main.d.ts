@@ -43,13 +43,15 @@ export type Scene = {
 };
 export type Module = {
   hello: (name: string) => string,
+  // 点群はフラットな Float64Array (列優先 = 点ごとに連続) で受け渡す。
+  // 2D 点群は [x0,y0,x1,y1,...]、3D 点群は [x0,y0,z0,x1,y1,z1,...] の並び。
   getRelativePose: (
-    cam1_intrinsic: Intrinsic, cam1_points: Vec2[],
-    cam2_intrinsic: Intrinsic, cam2_points: Vec2[],
+    cam1_intrinsic: Intrinsic, cam1_points: Float64Array,
+    cam2_intrinsic: Intrinsic, cam2_points: Float64Array,
     max_iteration_count: number
   ) => Result<Pose>,
-  getPose: (intrinsic: Intrinsic, points_2d: Vec2[], points_3d: Vec3[]) => Result<Pose>,
-  triangulation: (cam1: Camera, cam1_points: Vec2[], cam2: Camera, cam2_points: Vec2[]) => Result<Vec3[]>,
+  getPose: (intrinsic: Intrinsic, points_2d: Float64Array, points_3d: Float64Array) => Result<Pose>,
+  triangulation: (cam1: Camera, cam1_points: Float64Array, cam2: Camera, cam2_points: Float64Array) => Result<Float64Array>,
   bundleAdjustment: (scene: Scene) => Result<Scene>,
 };
 declare function wasmMVG(): Promise<Module>;

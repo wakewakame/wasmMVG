@@ -13,6 +13,8 @@ Val error(const std::string &description);
 Val ok(const Val &value);
 Mat valToMat(const Val &val);
 Val matToVal(const Mat &mat);
+Mat valToPoints(const Val &val, size_t rows);
+Val pointsToVal(const Mat &mat);
 Vec valToVec(const Val &val);
 Val vecToVal(const Vec &vec);
 Intrinsic valToIntrinsic(const Val &val);

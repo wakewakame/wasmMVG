@@ -39,6 +39,24 @@ Val matToVal(const Mat &mat) {
 	}
 	return ret;
 }
+// フラットな Float64Array (列優先 = 点ごとに連続) を rows×N 行列へ変換する。
+// 例: rows=2 のとき [x0,y0,x1,y1,...] の各点が行列の 1 列になる。
+// emscripten::convertJSArrayToNumberVector は内部で typed_memory_view + set() を使い、
+// TypedArray を一括コピーするため、要素ごとの JS↔WASM 往復が発生しない。
+Mat valToPoints(const Val &val, const size_t rows) {
+	const std::vector<double> buf = emscripten::convertJSArrayToNumberVector<double>(val);
+	if (rows == 0 || buf.size() % rows != 0) {
+		throw std::invalid_argument("invalid points array length");
+	}
+	const size_t cols = buf.size() / rows;
+	// Mat (openMVG::Mat) は列優先なので、フラット配列をそのまま rows×N 行列として写せる。
+	return Eigen::Map<const Mat>(buf.data(), rows, cols);
+}
+// rows×N 行列を列優先のフラットな Float64Array へ変換する (新しい JS 配列へコピーされる)。
+Val pointsToVal(const Mat &mat) {
+	return Val::global("Float64Array").new_(
+		emscripten::typed_memory_view(static_cast<size_t>(mat.size()), mat.data()));
+}
 Vec valToVec(const Val &val) {
 	/*
 	 * TODO: 引数のバリデートを行う
@@ -189,8 +207,8 @@ Val getRelativePoseJs(
 ) {
 	try {
 		const Pose3 pose = getRelativePose(
-			View{ valToIntrinsic(cam1_intrinsic), valToMat(cam1_points) },
-			View{ valToIntrinsic(cam2_intrinsic), valToMat(cam2_points) },
+			View{ valToIntrinsic(cam1_intrinsic), valToPoints(cam1_points, 2) },
+			View{ valToIntrinsic(cam2_intrinsic), valToPoints(cam2_points, 2) },
 			max_iteration_count
 		);
 		return ok(poseToVal(pose));
@@ -203,8 +221,8 @@ Val getRelativePoseJs(
 Val getPoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d) {
 	try {
 		const Pose3 pose = getPose(
-			View{ valToIntrinsic(intrinsic), valToMat(points_2d) },
-			valToMat(points_3d)
+			View{ valToIntrinsic(intrinsic), valToPoints(points_2d, 2) },
+			valToPoints(points_3d, 3)
 		);
 		return ok(poseToVal(pose));
 	}
@@ -216,10 +234,10 @@ Val getPoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d) 
 Val triangulationJs(const Val &cam1, const Val &cam1_points, const Val &cam2, const Val &cam2_points) {
 	try {
 		Mat points_3d = triangulation(
-			PosedView{ valToCamera(cam1), valToMat(cam1_points) },
-			PosedView{ valToCamera(cam2), valToMat(cam2_points) }
+			PosedView{ valToCamera(cam1), valToPoints(cam1_points, 2) },
+			PosedView{ valToCamera(cam2), valToPoints(cam2_points, 2) }
 		);
-		return ok(matToVal(points_3d));
+		return ok(pointsToVal(points_3d));
 	}
 	catch (const std::exception &e) {
 		return error(e.what());

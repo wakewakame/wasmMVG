@@ -2,6 +2,25 @@ import renderer from "./renderer.js";
 import vector from "./vector.js";
 import wasmMVG from '../build/wasm/RELEASE/main.js';
 
+// 点群を wasm へ渡すためのフラットな Float64Array (列優先 = 点ごとに連続) に変換する。
+// 例: [[x0,y0],[x1,y1]] -> Float64Array[x0,y0,x1,y1]
+const flatPoints2 = points => {
+	const out = new Float64Array(points.length * 2);
+	points.forEach((p, i) => { out[i * 2] = p[0]; out[i * 2 + 1] = p[1]; });
+	return out;
+};
+const flatPoints3 = points => {
+	const out = new Float64Array(points.length * 3);
+	points.forEach((p, i) => { out[i * 3] = p[0]; out[i * 3 + 1] = p[1]; out[i * 3 + 2] = p[2]; });
+	return out;
+};
+// wasm から返ったフラットな Float64Array を [[x,y,z],...] へ戻す。
+const unflatPoints3 = flat => {
+	const out = [];
+	for (let i = 0; i < flat.length; i += 3) { out.push([flat[i], flat[i + 1], flat[i + 2]]); }
+	return out;
+};
+
 const main = async (Module) => {
 	// 配置する点群の座標
 	const plyAscii = await fetch("../example_images/model.ply").then(res => res.text());
@@ -73,8 +92,8 @@ const main = async (Module) => {
 		const points1 = cam1.worldToScreen(points).map(point => [point.x, point.y].map(p => (p + px_rand * (Math.random() * 2.0 - 1.0))));
 		const points2 = cam2.worldToScreen(points).map(point => [point.x, point.y].map(p => (p + px_rand * (Math.random() * 2.0 - 1.0))));
 		let data = (i === 0) ?
-			Module.getRelativePose(camera1, points1, camera2, points2, 4096) :
-			Module.getPose(camera2, points2, points_reconstruct_model.points.map(p => p.slice(0, 3)));
+			Module.getRelativePose(camera1, flatPoints2(points1), camera2, flatPoints2(points2), 4096) :
+			Module.getPose(camera2, flatPoints2(points2), flatPoints3(points_reconstruct_model.points));
 		if (data.result === "error") { continue; }
 		data = data.value;
 		let Rt_ = DOMMatrix.fromFloat64Array(new Float64Array([
@@ -102,15 +121,15 @@ const main = async (Module) => {
 					image_path: "", intrinsic: camera1,
 					pose: { rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], translation: [0.0, 0.0, 0.0] }
 				},
-				points1,
+				flatPoints2(points1),
 				{
 					image_path: "", intrinsic: camera2,
 					pose: { rotation: data["rotation"], translation: data["translation"] }
 				},
-				points2
+				flatPoints2(points2)
 			);
 			if (data2.result === "error") { continue; }
-			data["points"] = data2.value;
+			data["points"] = unflatPoints3(data2.value);
 
 			// points_をcam1座標系から世界座標系へ変形
 			points_reconstruct_model.points = data["points"].map(([x, y, z]) => {
