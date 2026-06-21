@@ -6,6 +6,8 @@ RUN apt-get update \
         make \
         cmake \
         python3 \
+        xz-utils \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY lib/emsdk /emsdk
 RUN VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("/emsdk/emscripten-releases-tags.json","utf8")).aliases.latest')" \

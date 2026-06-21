@@ -1,4 +1,4 @@
-#include "wasmMVG.h"
+#include "wasmMVG_bindings.h"
 
 #ifdef __EMSCRIPTEN__
 

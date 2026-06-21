@@ -62,6 +62,7 @@ macro(make_app)
 	cmake_parse_arguments(ARG "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 	add_executable(${ARG_APP_NAME}
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/wasmMVG.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/wasmMVG_bindings.cpp"
 		${ARG_SOURCES}
 	)
 	target_compile_features(${ARG_APP_NAME} PUBLIC cxx_std_17)

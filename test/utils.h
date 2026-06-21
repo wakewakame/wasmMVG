@@ -68,4 +68,51 @@ Scene randomScene(std::mt19937 &rnd, const size_t cameras = 3, const size_t poin
 	return scene;
 }
 
+// 歪みのない PINHOLE_CAMERA_RADIAL3 カメラの内部パラメータを生成
+Intrinsic pinholeIntrinsic(const int width, const int height, const double focal) {
+	Intrinsic intrinsic;
+	intrinsic.reset(new openMVG::cameras::Pinhole_Intrinsic_Radial_K3 {
+		width, height, focal, width / 2.0, height / 2.0, 0.0, 0.0, 0.0
+	});
+	return intrinsic;
+}
+// ワールド座標の点をカメラのスクリーン座標へ投影
+Vec2 projectPoint(const Camera &camera, const Vec3 &point) {
+	return camera.intrinsic->project(camera.pose(point));
+}
+// 複数のワールド座標 (3 x N) をスクリーン座標 (2 x N) へまとめて投影
+Mat projectPoints(const Camera &camera, const Mat &points_3d) {
+	Mat points_2d{ 2, points_3d.cols() };
+	for (size_t col = 0; col < (size_t)points_3d.cols(); col++) {
+		points_2d.col(col) = projectPoint(camera, Vec3(points_3d.col(col)));
+	}
+	return points_2d;
+}
+// テスト用の合成ステレオデータ
+struct StereoTestData {
+	Camera cam1;
+	Camera cam2;
+	Mat points_3d;   // 3 x N のワールド座標
+	Mat points1_2d;  // 2 x N の cam1 スクリーン座標
+	Mat points2_2d;  // 2 x N の cam2 スクリーン座標
+};
+// 原点付近の点群を 2 台のカメラから観測した、歪み・ノイズのない整合データを生成する。
+// 2 台のカメラは点群の手前 (z = -5) に x 方向の基線を空けて配置し、いずれも +z 方向を向く。
+StereoTestData makeStereoTestData(std::mt19937 &rnd, const size_t num_points = 64) {
+	StereoTestData data;
+	data.cam1 = Camera{ pinholeIntrinsic(640, 480, 500.0), Pose3{ openMVG::Mat3::Identity(), Vec3(0.0, 0.0, -5.0) } };
+	data.cam2 = Camera{ pinholeIntrinsic(640, 480, 500.0), Pose3{ openMVG::Mat3::Identity(), Vec3(2.0, 0.0, -5.0) } };
+	data.points_3d = Mat{ 3, num_points };
+	for (size_t col = 0; col < num_points; col++) {
+		data.points_3d.col(col) = Vec3(
+			randomDouble(rnd, -1.0, 1.0),
+			randomDouble(rnd, -1.0, 1.0),
+			randomDouble(rnd, -1.0, 1.0)
+		);
+	}
+	data.points1_2d = projectPoints(data.cam1, data.points_3d);
+	data.points2_2d = projectPoints(data.cam2, data.points_3d);
+	return data;
+}
+
 #endif
