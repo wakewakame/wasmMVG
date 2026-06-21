@@ -33,3 +33,5 @@ cd examples
 npm i
 npm run dev
 ```
+
+なお、デモページの追加は `./examples/pages/xxx.html` のようなファイルを追加するだけで自動認識されるため、動作確認に最適。
