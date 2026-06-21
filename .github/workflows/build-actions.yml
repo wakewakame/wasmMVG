@@ -1,21 +1,29 @@
 name: Build Actions
 on:
   push:
-    branches-ignore:
-      - '**'
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          node-version: 18
-      - run: sudo apt install -y clang cmake jq
-      - run: ./build.sh init
-      - run: ./build.sh build wasm RELEASE
-      - run: gh release create ${{ github.ref }} ./build/wasm/RELEASE/wasmMVG-${GITHUB_REF#refs/*/}.tgz
+          submodules: recursive
+          persist-credentials: false
+      - run: npm version "${{ github.ref_name }}" --no-git-tag-version --allow-same-version
+        working-directory: assets
+      - run: docker build -t wasm_mvg .
+      - run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,source=$(pwd),target=/workdir" \
+            wasm_mvg make wasm-release
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "./build/wasm/RELEASE/wasmMVG-${{ github.ref_name }}.tgz"

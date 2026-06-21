@@ -1,13 +1,13 @@
 {
   "name": "wasmMVG",
-  "version": "0.0.3",
+  "version": "0.0.0",
   "description": "",
   "type": "module",
   "main": "./main.js",
   "files": [
-	"./main.js",
-	"./main.wasm",
-	"./main.d.ts"
+    "./main.js",
+    "./main.wasm",
+    "./main.d.ts"
   ],
   "types": "./main.d.ts",
   "author": "",
