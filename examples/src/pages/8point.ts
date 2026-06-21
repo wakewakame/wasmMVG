@@ -4,28 +4,30 @@ import wasmMVG from 'wasmMVG';
 
 // 点群を wasm へ渡すためのフラットな Float64Array (列優先 = 点ごとに連続) に変換する。
 // 例: [[x0,y0],[x1,y1]] -> Float64Array[x0,y0,x1,y1]
-const flatPoints2 = points => {
+const flatPoints2 = (points: number[][]): Float64Array => {
   const out = new Float64Array(points.length * 2);
   points.forEach((p, i) => { out[i * 2] = p[0]; out[i * 2 + 1] = p[1]; });
   return out;
 };
-const flatPoints3 = points => {
+const flatPoints3 = (points: number[][]): Float64Array => {
   const out = new Float64Array(points.length * 3);
   points.forEach((p, i) => { out[i * 3] = p[0]; out[i * 3 + 1] = p[1]; out[i * 3 + 2] = p[2]; });
   return out;
 };
 // wasm から返ったフラットな Float64Array を [[x,y,z],...] へ戻す。
-const unflatPoints3 = flat => {
-  const out = [];
+const unflatPoints3 = (flat: Float64Array | number[]): number[][] => {
+  const out: number[][] = [];
   for (let i = 0; i < flat.length; i += 3) { out.push([flat[i], flat[i + 1], flat[i + 2]]); }
   return out;
 };
 
-const main = async (Module) => {
+// Module は wasm (emscripten) のインスタンス。やり取りするデータ (シーン記述や推定結果) は
+// 構造が動的なため、この研究用デモ内では any として扱う。
+const main = async (Module: any): Promise<void> => {
   // 配置する点群の座標
   const plyAscii = await fetch("../example_images/model.ply").then(res => res.text());
-  const plyPointLength = Number(plyAscii.match(/element vertex [0-9]+/)[0].match(/[0-9]+/)[0]);
-  const plyFaceLength = Number(plyAscii.match(/element face [0-9]+/)[0].match(/[0-9]+/)[0]);
+  const plyPointLength = Number(plyAscii.match(/element vertex [0-9]+/)![0].match(/[0-9]+/)![0]);
+  const plyFaceLength = Number(plyAscii.match(/element face [0-9]+/)![0].match(/[0-9]+/)![0]);
   const plyEndHeaderLine = plyAscii.split("\n").findIndex(line => line === "end_header");
   let points =
     plyAscii.split("\n").slice(plyEndHeaderLine + 1, plyEndHeaderLine + plyPointLength + 1).
@@ -39,7 +41,7 @@ const main = async (Module) => {
     map(point => point.split(" ").map(num => Number(num)).slice(1));
 
   // canvasの取得
-  const preview_canvas = document.getElementById("preview");  // 全体像把握用のプレビュー
+  const preview_canvas = document.getElementById("preview") as HTMLCanvasElement;  // 全体像把握用のプレビュー
 
   // シーンの作成
   const scene = new renderer.Scene();
@@ -73,7 +75,7 @@ const main = async (Module) => {
   scene.addModel(lines_model);
   scene.addModel(points_reconstruct_model);
 
-  let ba_scene = { "cameras": {}, "points": {} };
+  let ba_scene: any = { "cameras": {}, "points": {} };
   for(let i = 0; i < circle_cam.length - 1; i++) {
     const cam1 = circle_cam[i][1];
     const cam2 = circle_cam[i + 1][0];
@@ -91,7 +93,7 @@ const main = async (Module) => {
     };
     const points1 = cam1.worldToScreen(points).map(point => [point.x, point.y].map(p => (p + px_rand * (Math.random() * 2.0 - 1.0))));
     const points2 = cam2.worldToScreen(points).map(point => [point.x, point.y].map(p => (p + px_rand * (Math.random() * 2.0 - 1.0))));
-    let data = (i === 0) ?
+    let data: any = (i === 0) ?
       Module.getRelativePose(camera1, flatPoints2(points1), camera2, flatPoints2(points2), 4096) :
       Module.getPose(camera2, flatPoints2(points2), flatPoints3(points_reconstruct_model.points));
     if (data.result === "error") { continue; }
@@ -114,9 +116,9 @@ const main = async (Module) => {
       const Rt_length = Math.sqrt(Rt.m41 * Rt.m41 + Rt.m42 * Rt.m42 + Rt.m43 * Rt.m43);
       const scale = Rt_length / Rt_length_;
       Rt_.m41 *= scale; Rt_.m42 *= scale; Rt_.m43 *= scale;
-      data["translation"] = data["translation"].map(t => t * scale);
+      data["translation"] = data["translation"].map((t: number) => t * scale);
 
-      const data2 = Module.triangulation(
+      const data2: any = Module.triangulation(
         {
           image_path: "", intrinsic: camera1,
           pose: { rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], translation: [0.0, 0.0, 0.0] }
@@ -132,7 +134,7 @@ const main = async (Module) => {
       data["points"] = unflatPoints3(data2.value);
 
       // points_をcam1座標系から世界座標系へ変形
-      points_reconstruct_model.points = data["points"].map(([x, y, z]) => {
+      points_reconstruct_model.points = data["points"].map(([x, y, z]: number[]) => {
         let point = new DOMPoint(x, y, z, 1);
         point = cam1_view.inverse().transformPoint(point);
         return [point.x, point.y, point.z, 1];
@@ -152,7 +154,7 @@ const main = async (Module) => {
         }
       };
       ba_scene["points"] = points_reconstruct_model.points.map((point, index) => {
-        const point_ = { "point": point.slice(0, 3), "cameras": {} };
+        const point_: any = { "point": point.slice(0, 3), "cameras": {} };
         point_["cameras"][i] = points1[index];
         return point_;
       });
@@ -178,10 +180,10 @@ const main = async (Module) => {
     //cam2.projection = cam2_cam.projection;
 
     if ((i === num_camera-1) || (i % 50 === 0)) {
-      const ba_result = Module.bundleAdjustment(ba_scene);
+      const ba_result: any = Module.bundleAdjustment(ba_scene);
       if (ba_result.result === "error") { continue; }
       ba_scene = ba_result.value;
-      Object.entries(ba_scene["cameras"]).forEach(([index, camera]) => {
+      Object.entries(ba_scene["cameras"]).forEach(([index, camera]: [string, any]) => {
         const data = camera["pose"];
         const ba_Rt = DOMMatrix.fromFloat64Array(new Float64Array([
           data["rotation"][0][0], data["rotation"][0][1], data["rotation"][0][2], 0,
@@ -189,10 +191,10 @@ const main = async (Module) => {
           data["rotation"][2][0], data["rotation"][2][1], data["rotation"][2][2], 0,
           data["translation"][0], data["translation"][1], data["translation"][2], 1
         ]));
-        circle_cam[index][1].view = ba_Rt;
+        circle_cam[Number(index)][1].view = ba_Rt;
       });
-      Object.entries(ba_scene["points"]).forEach(([index, point]) => {
-        points_reconstruct_model.points[index] = [...point["point"], 1];
+      Object.entries(ba_scene["points"]).forEach(([index, point]: [string, any]) => {
+        points_reconstruct_model.points[Number(index)] = [...point["point"], 1];
       });
     }
   }
@@ -201,7 +203,7 @@ const main = async (Module) => {
   const model_center = points_reconstruct_model.points
     .reduce((acc, p) => acc.map((x, i) => (x + p[i])), [0, 0, 0])
     .map(p => (p / points_reconstruct_model.points.length));
-  circle_cam.forEach(([_, cam]) => {
+  circle_cam.forEach(([, cam]) => {
     cam.view.m41 -= model_center[0];
     cam.view.m42 -= model_center[1];
     cam.view.m43 -= model_center[2];
@@ -210,7 +212,7 @@ const main = async (Module) => {
     model_center.forEach((m, i) => { p[i] -= m; });
     return p;
   });
-  const rotate_scale_avg = points.reduce((acc, p1, index) => {
+  const rotate_scale_avg = points.reduce<any>((acc, p1, index) => {
     const p2 = points_reconstruct_model.points[index];
     const scale1 = Math.sqrt(p1[0] ** 2 + p1[1] ** 2 + p1[2] ** 2);
     const scale2 = Math.sqrt(p2[0] ** 2 + p2[1] ** 2 + p2[2] ** 2);
@@ -220,22 +222,22 @@ const main = async (Module) => {
       p1[0] * p2[1] - p1[1] * p2[0]
     ];
     const theta = Math.acos((p2[0] * p1[0] + p2[1] * p1[1] + p2[2] * p1[2]) / (scale1 * scale2));
-    acc[0] = acc[0].map((ax, i) => (ax + axis[i]));
+    acc[0] = acc[0].map((ax: number, i: number) => (ax + axis[i]));
     acc[1] += isFinite(theta) ? theta : 0;
     acc[2] += (scale1 / scale2);
     return acc;
   }, [[0, 0, 0], 0, 0]);
-  rotate_scale_avg[0] = rotate_scale_avg[0].map(ax => (ax / points.length));
+  rotate_scale_avg[0] = rotate_scale_avg[0].map((ax: number) => (ax / points.length));
   rotate_scale_avg[1] /= points.length;
   rotate_scale_avg[2] /= points.length;
   const rotate_avg2 = vector.rotate(new DOMPoint(...rotate_scale_avg[0]), rotate_scale_avg[1]);
   const rotate_avg3 = vector.rotate(new DOMPoint(...rotate_scale_avg[0]), -rotate_scale_avg[1]);
   points_reconstruct_model.points = points_reconstruct_model.points.map(p => {
-    const point = rotate_avg2.transformPoint(new DOMPoint(...p));
+    const point = rotate_avg2.transformPoint(new DOMPoint(p[0], p[1], p[2], p[3]));
     const scale = rotate_scale_avg[2];
     return [ point.x * scale, point.y * scale, point.z * scale, point.w ];
   });
-  circle_cam.forEach(([_, cam]) => {
+  circle_cam.forEach(([, cam]) => {
     cam.view = cam.view.multiply(rotate_avg3);
     cam.view.m41 *= rotate_scale_avg[2];
     cam.view.m42 *= rotate_scale_avg[2];

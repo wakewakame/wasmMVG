@@ -54,5 +54,11 @@ export type Module = {
   triangulation: (cam1: Camera, cam1_points: Float64Array, cam2: Camera, cam2_points: Float64Array) => Result<Float64Array>,
   bundleAdjustment: (scene: Scene) => Result<Scene>,
 };
-declare function wasmMVG(): Promise<Module>;
+// emscripten のファクトリへ渡すモジュール引数 (任意)。
+// noInitialRun などの既知オプションに加え、その他の emscripten 設定も受け付ける。
+export type ModuleArg = {
+  noInitialRun?: boolean,
+  [key: string]: unknown,
+};
+declare function wasmMVG(moduleArg?: ModuleArg): Promise<Module>;
 export default wasmMVG;

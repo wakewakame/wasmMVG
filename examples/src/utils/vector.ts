@@ -1,14 +1,14 @@
-const length = (point) => {
+const length = (point: DOMPointReadOnly): number => {
   return Math.sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
-}
+};
 
-const normal = (point) => {
+const normal = (point: DOMPointReadOnly): DOMPoint | null => {
   const length_ = length(point);
   if (length_ === 0.0) return null;
   return new DOMPoint(point.x / length_, point.y / length_, point.z / length_, 1.0);
 };
 
-const rotate = (axis, rad) => {
+const rotate = (axis: DOMPointReadOnly, rad: number): DOMMatrix => {
   const naxis = normal(axis);
   if (naxis === null) {
     return new DOMMatrix([
@@ -31,7 +31,7 @@ const rotate = (axis, rad) => {
 };
 
 // 平行移動行列x拡大縮小行列x回転行列 を 平行移動行列x回転行列 へ変換する関数
-const normalizeScale = (matrix) => {
+const normalizeScale = (matrix: DOMMatrix): DOMMatrix => {
   const determinant3x3 =
     matrix.m11 * matrix.m22 * matrix.m33 +
     matrix.m21 * matrix.m32 * matrix.m13 +
@@ -39,7 +39,7 @@ const normalizeScale = (matrix) => {
     matrix.m31 * matrix.m22 * matrix.m13 -
     matrix.m21 * matrix.m12 * matrix.m33 -
     matrix.m11 * matrix.m32 * matrix.m23;
-  const scale = 1.0 / Math.pow(determinant3x3, 1/3);
+  const scale = 1.0 / Math.pow(determinant3x3, 1 / 3);
   return new DOMMatrix([
     matrix.m11 * scale, matrix.m12 * scale, matrix.m13 * scale, 0,
     matrix.m21 * scale, matrix.m22 * scale, matrix.m23 * scale, 0,
@@ -48,15 +48,15 @@ const normalizeScale = (matrix) => {
   ]);
 };
 
-const matToJson = (matrix) => {
+const matToJson = (matrix: DOMMatrix): string => {
   return JSON.stringify(Array.from(matrix.toFloat64Array()));
 };
 
-const matFromJson = (json) => {
+const matFromJson = (json: string): DOMMatrix => {
   return DOMMatrix.fromFloat64Array(new Float64Array(JSON.parse(json)));
 };
 
-const matToOpencvIntrinsics = (projection) => {
+const matToOpencvIntrinsics = (projection: DOMMatrix): number[][] => {
   return [
     [projection.m11, 0, projection.m31],
     [0, projection.m22, projection.m32],
@@ -65,11 +65,11 @@ const matToOpencvIntrinsics = (projection) => {
 };
 
 export default {
-  length: length,
-  normal: normal,
-  rotate: rotate,
-  normalizeScale: normalizeScale,
-  matToJson: matToJson,
-  matFromJson: matFromJson,
-  matToOpencvIntrinsics: matToOpencvIntrinsics,
+  length,
+  normal,
+  rotate,
+  normalizeScale,
+  matToJson,
+  matFromJson,
+  matToOpencvIntrinsics,
 };

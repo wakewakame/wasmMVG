@@ -1,32 +1,33 @@
-import vector from "./vector.js";
+import vector from "./vector";
 
-const Scene = class {
-  constructor() {
-    this.models = new Array();
-  }
-  addModel(model) {
+class Scene {
+  models: Model[] = [];
+  addModel<T extends Model>(model: T): T {
     model.scene = this;
     this.models.push(model);
     this.update();
     return model;
   }
-  update() {
+  update(): void {
     this.models.forEach(model => { model.update(); });
   }
-};
+}
 
-const Model = class {
-  constructor() {
-    this.scene = null;
+class Model {
+  scene: Scene | null = null;
+  update(): void {
   }
-  update() {
+  draw(_cam: CameraModel): void {
   }
-  draw(cam) {
-  }
-};
+}
 
-const VirtualCameraModel = class extends Model {
-  constructor(width, height, color = "#CCA990") {
+class VirtualCameraModel extends Model {
+  width: number;
+  height: number;
+  view: DOMMatrix;
+  projection: DOMMatrix;
+  color: string;
+  constructor(width: number, height: number, color: string = "#CCA990") {
     super();
     this.width = width;
     this.height = height;
@@ -43,19 +44,19 @@ const VirtualCameraModel = class extends Model {
       f , 0 , 0, 0,
       0 , f , 0, 0,
       cx, cy, 1, 1,
-      0 , 0 , 0, 0 
+      0 , 0 , 0, 0
     ]);
     this.color = color;
   }
-  worldToScreen(points) {
+  worldToScreen(points: number[][]): DOMPoint[] {
     return points
       .map(point => new DOMPoint(point[0], point[1], point[2], 1))
       .map(point => this.view.transformPoint(point))
       .map(point => this.projection.transformPoint(point))
       .map(point => { point.x /= point.w; point.y /= point.w; return point; });
   }
-  draw(cam) {
-    if (cam === this) { return; }
+  draw(cam: CameraModel): void {
+    if (cam === (this as VirtualCameraModel)) { return; }
     const width = 1;
     const height = this.height * width / this.width;
     const focalLength = -this.projection.m11 * width / this.width;
@@ -74,10 +75,13 @@ const VirtualCameraModel = class extends Model {
     cam.line3d(p3.x, p3.y, p3.z, p4.x, p4.y, p4.z, 2, this.color);
     cam.line3d(p4.x, p4.y, p4.z, p1.x, p1.y, p1.z, 2, this.color);
   }
-};
+}
 
-const CameraModel = class extends VirtualCameraModel {
-  constructor(canvas, color = "#77A9B0") {
+class CameraModel extends VirtualCameraModel {
+  canvas: HTMLCanvasElement;
+  context2d: CanvasRenderingContext2D;
+  scale: number;
+  constructor(canvas: HTMLCanvasElement, color: string = "#77A9B0") {
     super(
       Number(getComputedStyle(canvas).width.replace(/px$/, ""))  * devicePixelRatio,
       Number(getComputedStyle(canvas).height.replace(/px$/, "")) * devicePixelRatio,
@@ -86,11 +90,11 @@ const CameraModel = class extends VirtualCameraModel {
     this.canvas = canvas;
     this.canvas.width  = this.width;
     this.canvas.height = this.height;
-    this.context2d = canvas.getContext("2d");
+    this.context2d = canvas.getContext("2d")!;
     this.scale = 2.0;
   }
-  clear() { this.context2d.clearRect(0, 0, this.canvas.width, this.canvas.height); }
-  point2d(x, y, hex = "#77A9B0") {
+  clear(): void { this.context2d.clearRect(0, 0, this.canvas.width, this.canvas.height); }
+  point2d(x: number, y: number, hex: string = "#77A9B0"): void {
     const ctx = this.context2d;
     ctx.save();
     try {
@@ -102,12 +106,12 @@ const CameraModel = class extends VirtualCameraModel {
       ctx.restore();
     }
   }
-  point3d(x, y, z, hex = "#77A9B0") {
+  point3d(x: number, y: number, z: number, hex: string = "#77A9B0"): void {
     const point = this.worldToScreen([[x, y, z]])[0];
     if (point.w <= 0.0) { return; }
     this.point2d(point.x, point.y, hex);
   }
-  line2d(x1, y1, x2, y2, width = 4, hex = "#77A9B0") {
+  line2d(x1: number, y1: number, x2: number, y2: number, width: number = 4, hex: string = "#77A9B0"): void {
     const ctx = this.context2d;
     ctx.save();
     try {
@@ -122,7 +126,7 @@ const CameraModel = class extends VirtualCameraModel {
       ctx.restore();
     }
   }
-  line3d(x1, y1, z1, x2, y2, z2, width = 4, hex = "#77A9B0") {
+  line3d(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, width: number = 4, hex: string = "#77A9B0"): void {
     const points = this.worldToScreen([
       [x1, y1, z1],
       [x2, y2, z2]
@@ -130,39 +134,40 @@ const CameraModel = class extends VirtualCameraModel {
     if (points.some(point => (point.w <= 0.0))) { return; }
     this.line2d(points[0].x, points[0].y, points[1].x, points[1].y, width, hex);
   }
-  update() {
+  update(): void {
     setTimeout(() => {
       this.clear();
-      this.scene.models.forEach(model => {
+      this.scene!.models.forEach(model => {
         model.draw(this);
       });
     }, 0);
   }
-};
+}
 
-const CameraModelWithMouse = class extends CameraModel {
-  constructor(canvas, color = "#77A9B0") {
+class CameraModelWithMouse extends CameraModel {
+  pointerList: Map<number, [number, number]>;
+  constructor(canvas: HTMLCanvasElement, color: string = "#77A9B0") {
     super(canvas, color);
     this.pointerList = new Map();
-    canvas.addEventListener("pointerdown", (e) => {
+    canvas.addEventListener("pointerdown", (e: PointerEvent) => {
       this.pointerList.set(e.pointerId, [e.offsetX, e.offsetY]);
-      const callback = e => {
-        const offset = [e.offsetX, e.offsetY];
-        const preOffset = this.pointerList.get(e.pointerId);
+      const callback = (e: PointerEvent) => {
+        const offset: [number, number] = [e.offsetX, e.offsetY];
+        const preOffset = this.pointerList.get(e.pointerId)!;
         const movement = offset.map((num, i) => (num - preOffset[i]));
         this.pointerList.set(e.pointerId, offset);
         this.mouseController(movement, e.shiftKey, e.ctrlKey);
       };
       window.addEventListener("pointermove", callback);
-      window.addEventListener("pointerup", (e) => {
+      window.addEventListener("pointerup", (e: PointerEvent) => {
         window.removeEventListener("pointermove", callback);
         this.pointerList.delete(e.pointerId);
-        document.body.style["user-select"] = "auto";
+        document.body.style.userSelect = "auto";
       });
-      document.body.style["user-select"] = "none";
+      document.body.style.userSelect = "none";
     });
   }
-  mouseController([movementX, movementY], shiftKey, ctrlKey) {
+  mouseController([movementX, movementY]: number[], shiftKey: boolean, ctrlKey: boolean): void {
     if (shiftKey) {
       this.view.m41 += movementX / 100.0;
       this.view.m42 += movementY / 100.0;
@@ -181,64 +186,70 @@ const CameraModelWithMouse = class extends CameraModel {
       this.view.preMultiplySelf(rotate);
       this.view.m43 += 10;
     }
-    this.scene.update();
+    this.scene!.update();
   }
-};
+}
 
-const AxisModel = class extends Model {
-  draw(cam) {
+class AxisModel extends Model {
+  draw(cam: CameraModel): void {
     cam.line3d(0, 0, 0, 1, 0, 0, 4, "#FA8CBB");
     cam.line3d(0, 0, 0, 0, 1, 0, 4, "#73E4FA");
     cam.line3d(0, 0, 0, 0, 0, 1, 4, "#F9F098");
   }
-};
+}
 
-const PointsModel = class extends Model {
-  constructor(color = "#77A9B0", points = new Array()) {
+class PointsModel extends Model {
+  points: number[][];
+  color: string;
+  constructor(color: string = "#77A9B0", points: number[][] = []) {
     super();
     this.points = points;
     this.color = color;
   }
-  draw(cam) {
+  draw(cam: CameraModel): void {
     for(const point of this.points) {
       cam.point3d(point[0], point[1], point[2], this.color);
     }
   }
-  updatePoints(points) {
+  updatePoints(points: number[][]): void {
     this.points = points;
-    this.scene.update();
+    this.scene!.update();
   }
 }
-const LinesModel = class extends Model {
-  constructor(color = "#77A9B0", points = new Array(), lines = new Array()) {
+
+class LinesModel extends Model {
+  points: number[][];
+  lines: number[][];
+  color: string;
+  constructor(color: string = "#77A9B0", points: number[][] = [], lines: number[][] = []) {
     super();
     this.points = points;
     this.lines = lines;
     this.color = color;
   }
-  draw(cam) {
+  draw(cam: CameraModel): void {
     for(const line of this.lines) {
       const points = this.points;
-      const p = [points[line[0]], points[line[1]], points[line[2]]].map(p => p.slice(0, 3));
-      cam.line3d(...p[0], ...p[1], 1, this.color);
-      cam.line3d(...p[1], ...p[2], 1, this.color);
-      cam.line3d(...p[2], ...p[0], 1, this.color);
+      const p = [points[line[0]], points[line[1]], points[line[2]]].map(q => q.slice(0, 3));
+      cam.line3d(p[0][0], p[0][1], p[0][2], p[1][0], p[1][1], p[1][2], 1, this.color);
+      cam.line3d(p[1][0], p[1][1], p[1][2], p[2][0], p[2][1], p[2][2], 1, this.color);
+      cam.line3d(p[2][0], p[2][1], p[2][2], p[0][0], p[0][1], p[0][2], 1, this.color);
     }
   }
-  updatePoints(points, lines) {
+  updatePoints(points: number[][], lines: number[][]): void {
     this.points = points;
     this.lines = lines;
-    this.scene.update();
+    this.scene!.update();
   }
 }
 
 export default {
-  Scene: Scene,
-  Model: Model,
-  VirtualCameraModel: VirtualCameraModel,
-  CameraModel: CameraModel,
-  CameraModelWithMouse: CameraModelWithMouse,
-  AxisModel: AxisModel,
-  PointsModel: PointsModel,
-  LinesModel: LinesModel,
+  Scene,
+  Model,
+  VirtualCameraModel,
+  CameraModel,
+  CameraModelWithMouse,
+  AxisModel,
+  PointsModel,
+  LinesModel,
 };
