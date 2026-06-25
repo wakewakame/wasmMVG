@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>single view demo</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; border: 0; border-spacing: 0; }
+      body {
+        background: #E4E6E5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100svh;
+      }
+      #controls {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 10;
+        background: rgba(228, 230, 229, 0.92);
+        padding: 12px;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-family: monospace;
+        font-size: 13px;
+      }
+      #controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #controls input[type="range"] { width: 160px; }
+      #controls .value { min-width: 48px; text-align: right; }
+      canvas {
+        max-width: 100vw;
+        max-height: 100svh;
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <label>Image <input type="file" id="image-input" accept="image/*"></label>
+      <label>f  <input type="range" id="f-slider"  min="100" max="3000" value="560" step="1"> <span class="value" id="f-value">560</span></label>
+      <label>cx <input type="range" id="cx-slider" min="0"   max="640"  value="320" step="1"> <span class="value" id="cx-value">320</span></label>
+      <label>cy <input type="range" id="cy-slider" min="0"   max="480"  value="240" step="1"> <span class="value" id="cy-value">240</span></label>
+    </div>
+    <canvas id="preview" width="640" height="480"></canvas>
+    <script type="module" src="/src/pages/single_view.ts"></script>
+  </body>
+</html>

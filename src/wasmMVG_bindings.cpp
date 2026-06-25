@@ -231,6 +231,22 @@ Val getPoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d) 
 	}
 }
 
+Val refinePoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d, const Val &initial_pose, const size_t max_iterations, const size_t dof_mask) {
+	try {
+		const Pose3 pose = refinePose(
+			View{ valToIntrinsic(intrinsic), valToPoints(points_2d, 2) },
+			valToPoints(points_3d, 3),
+			valToPose(initial_pose),
+			max_iterations,
+			static_cast<uint32_t>(dof_mask)
+		);
+		return ok(poseToVal(pose));
+	}
+	catch (const std::exception &e) {
+		return error(e.what());
+	}
+}
+
 Val triangulationJs(const Val &cam1, const Val &cam1_points, const Val &cam2, const Val &cam2_points) {
 	try {
 		Mat points_3d = triangulation(

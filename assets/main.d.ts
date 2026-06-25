@@ -51,6 +51,7 @@ export type Module = {
     max_iteration_count: number
   ) => Result<Pose>,
   getPose: (intrinsic: Intrinsic, points_2d: Float64Array, points_3d: Float64Array) => Result<Pose>,
+  refinePose: (intrinsic: Intrinsic, points_2d: Float64Array, points_3d: Float64Array, initial_pose: Pose, max_iterations: number, dof_mask: number) => Result<Pose>,
   triangulation: (cam1: Camera, cam1_points: Float64Array, cam2: Camera, cam2_points: Float64Array) => Result<Float64Array>,
   bundleAdjustment: (scene: Scene) => Result<Scene>,
 };

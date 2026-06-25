@@ -72,6 +72,126 @@ TEST(getPose, recoversPose) {
 	EXPECT_TRUE(pose.center().isApprox(data.cam2.pose.center(), 1e-4));
 }
 
+// 初期姿勢に摂動を加えた状態から refinePose で真の姿勢を復元できることを確認
+TEST(refinePose, recoversFromPerturbedPose) {
+	const auto intrinsic = pinholeIntrinsic(640, 480, 500.0);
+	const double ay = M_PI / 6.0, ax = M_PI / 9.0;
+	openMVG::Mat3 Ry, Rx;
+	Ry << std::cos(ay), 0, std::sin(ay),
+	      0,            1, 0,
+	     -std::sin(ay), 0, std::cos(ay);
+	Rx << 1, 0,             0,
+	      0, std::cos(ax), -std::sin(ax),
+	      0, std::sin(ax),  std::cos(ax);
+	const openMVG::Mat3 R = Ry * Rx;
+	const Pose3 gt_pose(R, Vec3(0.0, 0.0, -5.0));
+	const Camera cam{ intrinsic, gt_pose };
+
+	Mat points_3d(3, 8);
+	points_3d.col(0) = Vec3(-1, -1, -1);
+	points_3d.col(1) = Vec3( 1, -1, -1);
+	points_3d.col(2) = Vec3( 1,  1, -1);
+	points_3d.col(3) = Vec3(-1,  1, -1);
+	points_3d.col(4) = Vec3(-1, -1,  1);
+	points_3d.col(5) = Vec3( 1, -1,  1);
+	points_3d.col(6) = Vec3( 1,  1,  1);
+	points_3d.col(7) = Vec3(-1,  1,  1);
+
+	const Mat points_2d = projectPoints(cam, points_3d);
+
+	// 真の姿勢に摂動を加えた初期値
+	const Pose3 perturbed(R * Eigen::AngleAxisd(0.1, Vec3::UnitY()).toRotationMatrix(),
+	                      Vec3(0.2, -0.1, -4.8));
+
+	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, perturbed, 50);
+	EXPECT_TRUE(recovered.rotation().isApprox(gt_pose.rotation(), 1e-6))
+		<< "rotation expected:\n" << gt_pose.rotation()
+		<< "\ngot:\n" << recovered.rotation();
+	EXPECT_TRUE(recovered.center().isApprox(gt_pose.center(), 1e-6))
+		<< "center expected: " << gt_pose.center().transpose()
+		<< " got: " << recovered.center().transpose();
+}
+
+// refinePose で少数 (4 点) でも全点が影響して姿勢が復元されることを確認
+TEST(refinePose, worksWithFourPoints) {
+	const auto intrinsic = pinholeIntrinsic(640, 480, 500.0);
+	const Pose3 gt_pose(openMVG::Mat3::Identity(), Vec3(0.0, 0.0, -5.0));
+	const Camera cam{ intrinsic, gt_pose };
+
+	Mat points_3d(3, 4);
+	points_3d.col(0) = Vec3(-1, -1, 0);
+	points_3d.col(1) = Vec3( 1, -1, 0);
+	points_3d.col(2) = Vec3( 1,  1, 0);
+	points_3d.col(3) = Vec3(-1,  1, 0);
+
+	const Mat points_2d = projectPoints(cam, points_3d);
+
+	const Pose3 perturbed(openMVG::Mat3::Identity(), Vec3(0.1, -0.1, -4.9));
+
+	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, perturbed, 50);
+	EXPECT_TRUE(recovered.rotation().isApprox(gt_pose.rotation(), 1e-4));
+	EXPECT_TRUE(recovered.center().isApprox(gt_pose.center(), 1e-4))
+		<< "center expected: " << gt_pose.center().transpose()
+		<< " got: " << recovered.center().transpose();
+}
+
+// 1 点 + tx,ty のみで平行移動を追従できることを確認
+TEST(refinePose, onePointTranslation) {
+	const auto intrinsic = pinholeIntrinsic(640, 480, 500.0);
+	const Pose3 gt_pose(openMVG::Mat3::Identity(), Vec3(0.3, -0.2, -5.0));
+	const Camera cam_gt{ intrinsic, gt_pose };
+
+	Mat points_3d(3, 1);
+	points_3d.col(0) = Vec3(0, 0, 0);
+	const Mat points_2d = projectPoints(cam_gt, points_3d);
+
+	// 初期姿勢はカメラ中心が少しずれている
+	const Pose3 initial(openMVG::Mat3::Identity(), Vec3(0.0, 0.0, -5.0));
+
+	// dof_mask = 0x18 (bit3=tx, bit4=ty のみ)
+	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, initial, 50, 0x18);
+
+	// tx, ty は目標に近づくが、tz, 回転は初期値のまま
+	const Vec3 t_recovered = recovered.translation();
+	const Vec3 t_gt = gt_pose.translation();
+	EXPECT_NEAR(t_recovered(0), t_gt(0), 1e-6);
+	EXPECT_NEAR(t_recovered(1), t_gt(1), 1e-6);
+	EXPECT_NEAR(t_recovered(2), initial.translation()(2), 1e-10);
+	EXPECT_TRUE(recovered.rotation().isApprox(openMVG::Mat3::Identity(), 1e-10));
+}
+
+// 2 点 + wz,tx,ty,tz でスケールと画面内回転を追従できることを確認
+TEST(refinePose, twoPointsScaleAndRotation) {
+	const auto intrinsic = pinholeIntrinsic(640, 480, 500.0);
+	// 画面内回転 (rz=15°) + 奥行き変更でターゲットを生成
+	const double rz = M_PI / 12.0;
+	openMVG::Mat3 Rz;
+	Rz << std::cos(rz), -std::sin(rz), 0,
+	      std::sin(rz),  std::cos(rz), 0,
+	      0,             0,            1;
+	const Pose3 gt_pose(Rz, Vec3(0.1, -0.1, -4.0));
+	const Camera cam_gt{ intrinsic, gt_pose };
+
+	Mat points_3d(3, 2);
+	points_3d.col(0) = Vec3(-1, 0, 0);
+	points_3d.col(1) = Vec3( 1, 0, 0);
+	const Mat points_2d = projectPoints(cam_gt, points_3d);
+
+	const Pose3 initial(openMVG::Mat3::Identity(), Vec3(0.0, 0.0, -5.0));
+
+	// dof_mask = 0x3C (wz, tx, ty, tz)
+	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, initial, 100, 0x3C);
+
+	// 再投影誤差が十分小さいことを確認
+	const Camera cam_recovered{ intrinsic, recovered };
+	for (int i = 0; i < 2; i++) {
+		const Vec2 reproj = projectPoint(cam_recovered, Vec3(points_3d.col(i)));
+		EXPECT_TRUE(reproj.isApprox(Vec2(points_2d.col(i)), 1e-3))
+			<< "point " << i << " expected: " << points_2d.col(i).transpose()
+			<< " got: " << reproj.transpose();
+	}
+}
+
 // 2 視点の対応点から相対姿勢を復元できることを確認 (並進はスケール不定)
 TEST(getRelativePose, recoversRelativePose) {
 	std::mt19937 rnd(123);

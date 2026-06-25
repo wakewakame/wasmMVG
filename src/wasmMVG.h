@@ -78,6 +78,19 @@ Pose3 getPose(const View &view, const Mat &points_3d);
 Mat triangulation(const PosedView &view1, const PosedView &view2);
 
 /**
+ * @brief 初期姿勢から再投影誤差を最小化してカメラ姿勢を精密化 (LM)
+ * @param[in] view       カメラ内部パラメータと特徴点のスクリーン座標
+ * @param[in] points_3d  view.points に対応する特徴点の現実座標 (3 x N)
+ * @param[in] initial    初期姿勢
+ * @param[in] max_iterations 最大反復回数
+ * @param[in] dof_mask   カメラフレームの自由度ビットマスク (bit0-2: 回転 wx,wy,wz, bit3-5: 並進 tx,ty,tz)
+ *                        0x3F = 全6自由度, 0x30 = tx,ty のみ, 0x3C = wz,tx,ty,tz
+ * @return 精密化された姿勢
+ * @exception 引数の行列サイズが不正だった場合に std::invalid_argument が発生
+ */
+Pose3 refinePose(const View &view, const Mat &points_3d, const Pose3 &initial, size_t max_iterations = 20, uint32_t dof_mask = 0x3F);
+
+/**
  * @brief バンドル調整
  * @param[in] scene バンドル調整を行うシーン
  * @return バンドル調整後のシーン
