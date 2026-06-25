@@ -66,11 +66,10 @@ function solvePose(): void {
   if (indices.length < 1) return;
 
   // 点数に応じてカメラフレームの自由度を制限
-  // bit0-2: 回転 (wx, wy, wz), bit3-5: 並進 (tx, ty, tz)
-  // bit0-2: 回転 (wx, wy, wz), bit3-5: 並進 (tx, ty, tz)
-  const dofMask = indices.length === 1 ? 0x18   // tx, ty のみ (スクリーン平行移動)
-               : indices.length === 2 ? 0x3C    // wz, tx, ty, tz (画面内回転 + 平行移動 + 奥行き)
-               : 0x3F;                          // 全 6 自由度
+  //                                    tx ty tz wx wy wz
+  const dofMask = indices.length === 1 ? 0b110000  // tx, ty
+               : indices.length === 2 ? 0b111001  // tx, ty, tz, wz
+               : 0b111111;                        // 全 6 自由度
 
   const intrinsic = {
     type: "PINHOLE_CAMERA_RADIAL3" as const,
@@ -298,7 +297,9 @@ imageInput.addEventListener("change", () => {
   const file = imageInput.files?.[0];
   if (!file) return;
   const img = new Image();
+  const url = URL.createObjectURL(file);
   img.onload = () => {
+    URL.revokeObjectURL(url);
     bgImage = img;
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
@@ -316,7 +317,7 @@ imageInput.addEventListener("change", () => {
     pose = makeInitialPose();
     render();
   };
-  img.src = URL.createObjectURL(file);
+  img.src = url;
 });
 
 // --- Init ---

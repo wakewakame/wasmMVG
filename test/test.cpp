@@ -148,8 +148,8 @@ TEST(refinePose, onePointTranslation) {
 	// 初期姿勢はカメラ中心が少しずれている
 	const Pose3 initial(openMVG::Mat3::Identity(), Vec3(0.0, 0.0, -5.0));
 
-	// dof_mask = 0x18 (bit3=tx, bit4=ty のみ)
-	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, initial, 50, 0x18);
+	// dof_mask = 0b110000 (tx, ty のみ)
+	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, initial, 50, 0b110000);
 
 	// tx, ty は目標に近づくが、tz, 回転は初期値のまま
 	const Vec3 t_recovered = recovered.translation();
@@ -179,8 +179,8 @@ TEST(refinePose, twoPointsScaleAndRotation) {
 
 	const Pose3 initial(openMVG::Mat3::Identity(), Vec3(0.0, 0.0, -5.0));
 
-	// dof_mask = 0x3C (wz, tx, ty, tz)
-	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, initial, 100, 0x3C);
+	// dof_mask = 0b111001 (tx, ty, tz, wz)
+	const Pose3 recovered = refinePose(View{ intrinsic, points_2d }, points_3d, initial, 100, 0b111001);
 
 	// 再投影誤差が十分小さいことを確認
 	const Camera cam_recovered{ intrinsic, recovered };

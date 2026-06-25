@@ -190,9 +190,11 @@ Pose3 refinePose(const View &view, const Mat &points_3d, const Pose3 &initial, s
 	}
 
 	// 有効な自由度のインデックスを収集
+	// ビットレイアウト (上位から): tx, ty, tz, wx, wy, wz
+	static const int bit_to_param[] = {2, 1, 0, 5, 4, 3};
 	std::vector<int> active;
 	for (int i = 0; i < 6; i++) {
-		if (dof_mask & (1u << i)) active.push_back(i);
+		if (dof_mask & (1u << i)) active.push_back(bit_to_param[i]);
 	}
 	const int ndof = static_cast<int>(active.size());
 	if (ndof == 0) return initial;
@@ -215,9 +217,11 @@ Pose3 refinePose(const View &view, const Mat &points_3d, const Pose3 &initial, s
 	for (size_t iter = 0; iter < max_iterations; iter++) {
 		Eigen::VectorXd residuals(2 * n);
 		Eigen::MatrixXd J(2 * n, ndof);
+		bool has_behind = false;
 
 		for (size_t i = 0; i < n; i++) {
 			const Vec3 Pc = R * Vec3(points_3d.col(i)) + t;
+			if (Pc(2) <= 0) { has_behind = true; break; }
 			const Vec2 proj = view.intrinsic->project(Pc);
 			residuals.segment<2>(2 * i) = proj - Vec2(points_2d_undisto.col(i));
 
@@ -227,6 +231,7 @@ Pose3 refinePose(const View &view, const Mat &points_3d, const Pose3 &initial, s
 				J.block<2,1>(2 * i, j) = Ji_full.col(active[j]);
 			}
 		}
+		if (has_behind) break;
 
 		// LM 更新
 		const Eigen::MatrixXd JtJ = J.transpose() * J;
@@ -257,10 +262,10 @@ Pose3 refinePose(const View &view, const Mat &points_3d, const Pose3 &initial, s
 		if (cost_new < cost_old) {
 			R = R_new;
 			t = t_new;
-			lambda *= 0.1;
+			lambda = std::clamp(lambda * 0.1, 1e-10, 1e10);
 			if (delta_active.norm() < 1e-10) break;
 		} else {
-			lambda *= 10.0;
+			lambda = std::clamp(lambda * 10.0, 1e-10, 1e10);
 		}
 	}
 
