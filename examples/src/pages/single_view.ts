@@ -10,24 +10,86 @@ const fDisplay = document.getElementById("f-value") as HTMLSpanElement;
 const cxDisplay = document.getElementById("cx-value") as HTMLSpanElement;
 const cyDisplay = document.getElementById("cy-value") as HTMLSpanElement;
 const imageInput = document.getElementById("image-input") as HTMLInputElement;
+const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
 
-const EDGES: [number, number][] = [
-  [0, 1], [1, 2], [2, 3], [3, 0],
-  [4, 5], [5, 6], [6, 7], [7, 4],
-  [0, 4], [1, 5], [2, 6], [3, 7],
-];
+// --- Model ---
 
-const CUBE: Vec3[] = [
-  [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
-  [-1, -1,  1], [1, -1,  1], [1, 1,  1], [-1, 1,  1],
-];
+interface Model {
+  vertices: Vec3[];
+  faces: [number, number, number][];
+  edges: [number, number][];
+  edgeToFaces: number[][];
+}
+
+function buildModel(vertices: Vec3[], faces: [number, number, number][]): Model {
+  const edgeMap = new Map<string, { edge: [number, number]; faceIndices: number[] }>();
+  for (let fi = 0; fi < faces.length; fi++) {
+    const [a, b, c] = faces[fi];
+    for (const [u, v] of [[a, b], [b, c], [c, a]]) {
+      const key = Math.min(u, v) + "_" + Math.max(u, v);
+      const entry = edgeMap.get(key);
+      if (entry) entry.faceIndices.push(fi);
+      else edgeMap.set(key, { edge: [u, v], faceIndices: [fi] });
+    }
+  }
+  const edges: [number, number][] = [];
+  const edgeToFaces: number[][] = [];
+  for (const { edge, faceIndices } of edgeMap.values()) {
+    edges.push(edge);
+    edgeToFaces.push(faceIndices);
+  }
+  return { vertices, faces, edges, edgeToFaces };
+}
+
+const CUBE_MODEL: Model = buildModel(
+  [
+    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+    [-1, -1,  1], [1, -1,  1], [1, 1,  1], [-1, 1,  1],
+  ],
+  [
+    [0, 2, 1], [0, 3, 2],
+    [4, 5, 6], [4, 6, 7],
+    [0, 1, 5], [0, 5, 4],
+    [2, 3, 7], [2, 7, 6],
+    [0, 7, 3], [0, 4, 7],
+    [1, 2, 6], [1, 6, 5],
+  ],
+);
+
+function parsePLY(text: string): Model {
+  const lines = text.split('\n');
+  let vertexCount = 0;
+  let faceCount = 0;
+  let headerEnd = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('element vertex')) vertexCount = parseInt(line.split(' ')[2]);
+    if (line.startsWith('element face')) faceCount = parseInt(line.split(' ')[2]);
+    if (line === 'end_header') { headerEnd = i + 1; break; }
+  }
+  const vertices: Vec3[] = [];
+  for (let i = 0; i < vertexCount; i++) {
+    const parts = lines[headerEnd + i].trim().split(/\s+/).map(Number);
+    vertices.push([parts[0], parts[1], parts[2]]);
+  }
+  const faces: [number, number, number][] = [];
+  for (let i = 0; i < faceCount; i++) {
+    const parts = lines[headerEnd + vertexCount + i].trim().split(/\s+/).map(Number);
+    faces.push([parts[1], parts[2], parts[3]]);
+  }
+  return buildModel(vertices, faces);
+}
+
+let bunnyModel: Model | null = null;
 
 let wasm: Module | null = null;
 let bgImage: HTMLImageElement | null = null;
 let f = 560;
 let cx = 320;
 let cy = 240;
-let targets: ([number, number] | null)[] = new Array<null>(8).fill(null);
+let model: Model = CUBE_MODEL;
+let targets: ([number, number] | null)[] = new Array<null>(model.vertices.length).fill(null);
+let vertexVisible: Uint8Array = new Uint8Array(model.vertices.length);
 
 function makeInitialPose(): Pose {
   const ay = Math.PI / 6, ax = Math.PI / 9;
@@ -45,6 +107,14 @@ function makeInitialPose(): Pose {
 
 let pose: Pose = makeInitialPose();
 
+function resetModel(m: Model): void {
+  model = m;
+  targets = new Array<null>(model.vertices.length).fill(null);
+  vertexVisible = new Uint8Array(model.vertices.length);
+  pose = makeInitialPose();
+  render();
+}
+
 // --- Projection ---
 
 function projectPoint(p: Vec3): [number, number] | null {
@@ -56,6 +126,32 @@ function projectPoint(p: Vec3): [number, number] | null {
   if (camZ <= 0) return null;
   return [f * camX / camZ + cx, f * camY / camZ + cy];
 }
+
+function updateVisibility(): void {
+  const faceVisible = model.faces.map(([a, b, c]) => {
+    const pa = projectPoint(model.vertices[a]);
+    const pb = projectPoint(model.vertices[b]);
+    const pc = projectPoint(model.vertices[c]);
+    if (!pa || !pb || !pc) return false;
+    const cross = (pb[0] - pa[0]) * (pc[1] - pa[1]) - (pb[1] - pa[1]) * (pc[0] - pa[0]);
+    return cross < 0;
+  });
+  vertexVisible = new Uint8Array(model.vertices.length);
+  for (let fi = 0; fi < model.faces.length; fi++) {
+    if (!faceVisible[fi]) continue;
+    const [a, b, c] = model.faces[fi];
+    vertexVisible[a] = vertexVisible[b] = vertexVisible[c] = 1;
+  }
+  for (let ei = 0; ei < model.edges.length; ei++) {
+    if (!model.edgeToFaces[ei].some(fi => faceVisible[fi])) {
+      edgeVisible[ei] = 0;
+    } else {
+      edgeVisible[ei] = 1;
+    }
+  }
+}
+
+let edgeVisible: Uint8Array = new Uint8Array(0);
 
 function solvePose(): void {
   if (!wasm) return;
@@ -83,9 +179,9 @@ function solvePose(): void {
     const vi = indices[i];
     pts2d[i * 2] = targets[vi]![0];
     pts2d[i * 2 + 1] = targets[vi]![1];
-    pts3d[i * 3] = CUBE[vi][0];
-    pts3d[i * 3 + 1] = CUBE[vi][1];
-    pts3d[i * 3 + 2] = CUBE[vi][2];
+    pts3d[i * 3] = model.vertices[vi][0];
+    pts3d[i * 3 + 1] = model.vertices[vi][1];
+    pts3d[i * 3 + 2] = model.vertices[vi][2];
   }
 
   const result = wasm.refinePose(intrinsic, pts2d, pts3d, pose, 20, dofMask);
@@ -114,12 +210,17 @@ function render(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (bgImage) ctx.drawImage(bgImage, 0, 0);
 
-  // Edges (逆算座標を結ぶ)
-  ctx.strokeStyle = "#77A9B0";
-  ctx.lineWidth = 2 * s;
-  for (const [i, j] of EDGES) {
-    const p1 = projectPoint(CUBE[i]);
-    const p2 = projectPoint(CUBE[j]);
+  edgeVisible = new Uint8Array(model.edges.length);
+  updateVisibility();
+
+  // Back-face edges (半透明)
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
+  ctx.lineWidth = 1 * s;
+  for (let ei = 0; ei < model.edges.length; ei++) {
+    if (edgeVisible[ei]) continue;
+    const [i, j] = model.edges[ei];
+    const p1 = projectPoint(model.vertices[i]);
+    const p2 = projectPoint(model.vertices[j]);
     if (!p1 || !p2) continue;
     ctx.beginPath();
     ctx.moveTo(p1[0], p1[1]);
@@ -127,12 +228,27 @@ function render(): void {
     ctx.stroke();
   }
 
-  // Vertices (逆算座標)
-  const r = 5 * s;
-  for (let i = 0; i < CUBE.length; i++) {
-    const p = projectPoint(CUBE[i]);
+  // Front-face edges
+  ctx.strokeStyle = "#000000";
+  for (let ei = 0; ei < model.edges.length; ei++) {
+    if (!edgeVisible[ei]) continue;
+    const [i, j] = model.edges[ei];
+    const p1 = projectPoint(model.vertices[i]);
+    const p2 = projectPoint(model.vertices[j]);
+    if (!p1 || !p2) continue;
+    ctx.beginPath();
+    ctx.moveTo(p1[0], p1[1]);
+    ctx.lineTo(p2[0], p2[1]);
+    ctx.stroke();
+  }
+
+  // Vertices (表面のみ)
+  const r = 3 * s;
+  for (let i = 0; i < model.vertices.length; i++) {
+    if (!vertexVisible[i]) continue;
+    const p = projectPoint(model.vertices[i]);
     if (!p) continue;
-    ctx.fillStyle = targets[i] ? "#FF3090" : "#77A9B0";
+    ctx.fillStyle = targets[i] ? "#FF3090" : "#000000";
     ctx.beginPath();
     ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
     ctx.fill();
@@ -145,7 +261,7 @@ function render(): void {
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
     if (!t) continue;
-    const p = projectPoint(CUBE[i]);
+    const p = projectPoint(model.vertices[i]);
     if (!p) continue;
     ctx.beginPath();
     ctx.moveTo(t[0], t[1]);
@@ -154,7 +270,7 @@ function render(): void {
   }
   ctx.setLineDash([]);
 
-  // Target crosshairs (目標座標)
+  // Target crosshairs
   const cr = 8 * s;
   const ext = 4 * s;
   ctx.strokeStyle = "#F9F098";
@@ -198,7 +314,7 @@ function findNearest(cssX: number, cssY: number, points: ([number, number] | nul
 }
 
 function projectedVertices(): ([number, number] | null)[] {
-  return CUBE.map(v => projectPoint(v));
+  return model.vertices.map((v, i) => vertexVisible[i] ? projectPoint(v) : null);
 }
 
 canvas.addEventListener("pointerdown", (e: PointerEvent) => {
@@ -224,7 +340,7 @@ canvas.addEventListener("pointermove", (e: PointerEvent) => {
   if (!isDragging && Math.hypot(e.offsetX - downX, e.offsetY - downY) > CLICK_THRESHOLD) {
     isDragging = true;
     if (!targets[activeIndex]) {
-      const p = projectPoint(CUBE[activeIndex]);
+      const p = projectPoint(model.vertices[activeIndex]);
       if (p) targets[activeIndex] = [p[0], p[1]];
     }
   }
@@ -243,7 +359,7 @@ canvas.addEventListener("pointerup", () => {
     if (targets[activeIndex]) {
       targets[activeIndex] = null;
     } else {
-      const p = projectPoint(CUBE[activeIndex]);
+      const p = projectPoint(model.vertices[activeIndex]);
       if (p) targets[activeIndex] = [p[0], p[1]];
     }
     solvePose();
@@ -313,11 +429,23 @@ imageInput.addEventListener("change", () => {
     cySlider.max = String(img.naturalHeight);
 
     syncSliders();
-    targets = new Array<null>(8).fill(null);
+    targets = new Array<null>(model.vertices.length).fill(null);
     pose = makeInitialPose();
     render();
   };
   img.src = url;
+});
+
+modelSelect.addEventListener("change", async () => {
+  if (modelSelect.value === "bunny") {
+    if (!bunnyModel) {
+      const res = await fetch("/example_images/model.ply");
+      bunnyModel = parsePLY(await res.text());
+    }
+    resetModel(bunnyModel);
+  } else {
+    resetModel(CUBE_MODEL);
+  }
 });
 
 // --- Init ---
