@@ -136,6 +136,142 @@ Pose3 getPose(const View &view, const Mat &points_3d) {
 	return pose;
 }
 
+// Rodrigues ベクトルから回転行列へ変換
+static openMVG::Mat3 rodrigues(const Vec3 &w) {
+	const double theta = w.norm();
+	if (theta < 1e-12) return openMVG::Mat3::Identity();
+	const Vec3 k = w / theta;
+	openMVG::Mat3 K;
+	K <<     0, -k(2),  k(1),
+	      k(2),     0, -k(0),
+	     -k(1),  k(0),     0;
+	return openMVG::Mat3::Identity() + std::sin(theta) * K + (1.0 - std::cos(theta)) * K * K;
+}
+
+// カメラフレームでの 6 自由度ヤコビアン (2×6) を計算する。
+// パラメータ順: [δwx, δwy, δwz, δtx, δty, δtz] (すべてカメラ座標系)
+// 更新則: p_cam_new = rodrigues(δw) * p_cam + δt
+static void cameraFrameJacobian(
+	const double focal, const Vec3 &Pc,
+	Eigen::Matrix<double, 2, 6> &J
+) {
+	const double X = Pc(0), Y = Pc(1), Z = Pc(2);
+	const double Zinv = 1.0 / Z;
+	const double Zinv2 = Zinv * Zinv;
+
+	// d(u,v)/d(Pc)
+	Eigen::Matrix<double, 2, 3> dproj;
+	dproj << focal * Zinv, 0,            -focal * X * Zinv2,
+	         0,            focal * Zinv,  -focal * Y * Zinv2;
+
+	// d(Pc)/d(δw) = [Pc]×  (δw × Pc の δw に対する微分)
+	Eigen::Matrix<double, 3, 3> skew;
+	skew <<  0,  Z, -Y,
+	        -Z,  0,  X,
+	         Y, -X,  0;
+
+	J.block<2,3>(0,0) = dproj * skew;  // 回転
+	J.block<2,3>(0,3) = dproj;         // 並進 (d(Pc)/d(δt) = I)
+}
+
+Pose3 refinePose(const View &view, const Mat &points_3d, const Pose3 &initial, size_t max_iterations, uint32_t dof_mask) {
+	if (view.points.rows() != 2) {
+		throw std::invalid_argument("view.points must have 2 rows.");
+	}
+	if (points_3d.rows() != 3) {
+		throw std::invalid_argument("points_3d must have 3 rows.");
+	}
+	if (view.points.cols() != points_3d.cols()) {
+		throw std::invalid_argument("view.points and points_3d must have the same number of columns.");
+	}
+	const size_t n = view.points.cols();
+	if (n < 1) {
+		throw std::invalid_argument("At least 1 point correspondence is required.");
+	}
+
+	// 有効な自由度のインデックスを収集
+	// ビットレイアウト (上位から): tx, ty, tz, wx, wy, wz
+	static const int bit_to_param[] = {2, 1, 0, 5, 4, 3};
+	std::vector<int> active;
+	for (int i = 0; i < 6; i++) {
+		if (dof_mask & (1u << i)) active.push_back(bit_to_param[i]);
+	}
+	const int ndof = static_cast<int>(active.size());
+	if (ndof == 0) return initial;
+	if (static_cast<int>(2 * n) < ndof) {
+		throw std::invalid_argument("Not enough points for the requested DOF.");
+	}
+
+	const Mat points_2d_undisto = columnMap(view.points, [&](const Vec &p) {
+		return view.intrinsic->get_ud_pixel(p);
+	});
+
+	const std::vector<double> iparams = view.intrinsic->getParams();
+	const double focal = iparams[0];
+
+	openMVG::Mat3 R = initial.rotation();
+	Vec3 t = initial.translation();  // t = -R*C
+
+	double lambda = 1e-3;
+
+	for (size_t iter = 0; iter < max_iterations; iter++) {
+		Eigen::VectorXd residuals(2 * n);
+		Eigen::MatrixXd J(2 * n, ndof);
+		bool has_behind = false;
+
+		for (size_t i = 0; i < n; i++) {
+			const Vec3 Pc = R * Vec3(points_3d.col(i)) + t;
+			if (Pc(2) <= 0) { has_behind = true; break; }
+			const Vec2 proj = view.intrinsic->project(Pc);
+			residuals.segment<2>(2 * i) = proj - Vec2(points_2d_undisto.col(i));
+
+			Eigen::Matrix<double, 2, 6> Ji_full;
+			cameraFrameJacobian(focal, Pc, Ji_full);
+			for (int j = 0; j < ndof; j++) {
+				J.block<2,1>(2 * i, j) = Ji_full.col(active[j]);
+			}
+		}
+		if (has_behind) break;
+
+		// LM 更新
+		const Eigen::MatrixXd JtJ = J.transpose() * J;
+		const Eigen::VectorXd Jtr = J.transpose() * residuals;
+		Eigen::MatrixXd A = JtJ;
+		A.diagonal() += lambda * JtJ.diagonal();
+		const Eigen::VectorXd delta_active = A.ldlt().solve(-Jtr);
+
+		// 6 自由度に展開
+		Eigen::Matrix<double, 6, 1> delta = Eigen::Matrix<double, 6, 1>::Zero();
+		for (int j = 0; j < ndof; j++) {
+			delta(active[j]) = delta_active(j);
+		}
+
+		// カメラフレームの更新を適用: R_new = dR * R, t_new = dR * t + dt
+		const openMVG::Mat3 dR = rodrigues(delta.head<3>());
+		const openMVG::Mat3 R_new = dR * R;
+		const Vec3 t_new = dR * t + delta.tail<3>();
+
+		double cost_old = residuals.squaredNorm();
+		double cost_new = 0.0;
+		for (size_t i = 0; i < n; i++) {
+			const Vec2 proj = view.intrinsic->project(R_new * Vec3(points_3d.col(i)) + t_new);
+			const Vec2 diff = proj - Vec2(points_2d_undisto.col(i));
+			cost_new += diff.squaredNorm();
+		}
+
+		if (cost_new < cost_old) {
+			R = R_new;
+			t = t_new;
+			lambda = std::clamp(lambda * 0.1, 1e-10, 1e10);
+			if (delta_active.norm() < 1e-10) break;
+		} else {
+			lambda = std::clamp(lambda * 10.0, 1e-10, 1e10);
+		}
+	}
+
+	return Pose3{ R, -R.transpose() * t };
+}
+
 /**
  * @brief 特徴点の三次元座標を三角測量
  * @param[in] view1 カメラ1 (内部パラメータ+姿勢) と特徴点のスクリーン座標

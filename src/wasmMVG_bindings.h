@@ -32,6 +32,7 @@ Val getRelativePoseJs(
 	const size_t max_iteration_count
 );
 Val getPoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d);
+Val refinePoseJs(const Val &intrinsic, const Val &points_2d, const Val &points_3d, const Val &initial_pose, size_t max_iterations, size_t dof_mask);
 Val triangulationJs(const Val &cam1, const Val &cam1_points, const Val &cam2, const Val &cam2_points);
 Val bundleAdjustmentJs(const Val &scene);
 
